@@ -1,0 +1,29 @@
+# Node
+node_modules/
+npm-debug.log
+yarn-error.log
+dist/
+.env
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+env/
+backend/.env
+frontend/.env
+backend/auth/test
+backend/face_auth/test
+backend/.env.example
+frontend/.env.example
+*.log
+
+# Supabase
+supabase/functions/*/deno.log
+
+# IDE
+.vscode/
+.idea/
