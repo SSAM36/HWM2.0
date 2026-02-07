@@ -18,14 +18,7 @@ from equipment_analyzer import (
     get_analysis_history,
     get_maintenance_schedules
 )
-from subsidy_service import get_all_subsidies, calculate_subsidy_amount, get_available_states
-from feature1.router import router as feature1_router
-from feature2.router import router as feature2_router
-from feature3.api import router as feature3_router
 from auth.router import router as auth_router
-from sensor_service import get_latest_sensor_data
-from hardware_router import router as hardware_router
-
 app = FastAPI(
     title="Annadata Saathi API",
     description="Multi-agent precision agriculture system for farm intelligence and automated controls",
