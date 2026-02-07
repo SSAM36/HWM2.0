@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, UploadFile, File
 from pydantic import BaseModel
 from typing import List, Dict
 from .services import calculate_polygon_area, extract_data_with_gemini, validate_land_claim, create_blockchain_hash
-from supabase_client import supabase
+from core.supabase_client import supabase
 import os
 router = APIRouter(prefix="/api/feature1", tags=["mark-my-land"])
 
@@ -64,7 +64,7 @@ async def record_land(request: LandRecordRequest):
         try:
             # Twilio Notification
             # Only import if needed
-            from sms_service import send_feature_notification
+            from services.sms_service import send_feature_notification
             # Use a hardcoded number or environmental variable for the demo user
             DEMO_PHONE = "+919999999999" 
             

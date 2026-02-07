@@ -16,7 +16,7 @@ py-solc-x
 geopy
 langgraph
 langchain-google-genai
-tensorflow-cpu
+tensorflow
 pillow
 numpy
 opencv-python-headless

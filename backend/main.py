@@ -10,7 +10,7 @@ from typing import Optional
 load_dotenv()
 
 # Import our modules
-from equipment_analyzer import (
+from feature5.equipment_analyzer import (
     analyze_equipment_image,
     generate_maintenance_schedule,
     get_repair_recommendations,
@@ -18,13 +18,15 @@ from equipment_analyzer import (
     get_analysis_history,
     get_maintenance_schedules
 )
-from subsidy_service import get_all_subsidies, calculate_subsidy_amount, get_available_states
+from feature5.subsidy_service import get_all_subsidies, calculate_subsidy_amount, get_available_states
 from feature1.router import router as feature1_router
 from feature2.router import router as feature2_router
 from feature3.api import router as feature3_router
 from auth.router import router as auth_router
-from sensor_service import get_latest_sensor_data
-from hardware_router import router as hardware_router
+from services.sensor_service import get_latest_sensor_data
+from hardware.router import router as hardware_router
+from admin.router import router as admin_router
+from feature_news.router import router as news_router
 
 app = FastAPI(
     title="Annadata Saathi API",
@@ -33,59 +35,29 @@ app = FastAPI(
 )
 
 # CORS configuration - Allow Vercel frontend and local development
-# Get allowed origins from environment variable or use defaults
 ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "").split(",") if os.getenv("ALLOWED_ORIGINS") else []
 
 origins = [
-    "https://localhost:5173",  # Vite local
-    "https://localhost:3000",
-    "https://localhost:5174",  # Sometimes Vite falls back to this
-    "https://127.0.0.1:5173",  # Alternative localhost
-    "https://let-go-3-0.vercel.app",  # Your Vercel production URL
-    "https://lets-go-3-frontend.vercel.app",  # Alternative Vercel URL
-    *ALLOWED_ORIGINS  # Additional origins from environment variable
+    "http://localhost:5173",
+    "http://localhost:3000",
+    "http://localhost:5174",
+    "http://127.0.0.1:5173",
+    "https://let-go-3-0.vercel.app",
+    "https://lets-go-3-frontend.vercel.app",
+    *ALLOWED_ORIGINS
 ]
 
-# Remove empty strings and add wildcard for Vercel preview deployments
+# Clean up origins
 origins = [origin.strip() for origin in origins if origin.strip()]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins + ["https://*.vercel.app"],  # Allow all Vercel subdomains
+    allow_origins=origins + ["https://*.vercel.app"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
     expose_headers=["*"]
 )
-
-from fastapi import Request, Response
-
-# Additional CORS middleware for Vercel compatibility
-@app.middleware("https")
-async def cors_middleware(request: Request, call_next):
-    origin = request.headers.get("origin")
-    
-    # Allow all Vercel deployments
-    if origin and (".vercel.app" in origin or origin in origins):
-        if request.method == "OPTIONS":
-            response = Response(status_code=200)
-        else:
-            try:
-                response = await call_next(request)
-            except Exception as e:
-                print(f"Error processing request: {e}")
-                response = Response(status_code=500, content=str(e))
-
-        response.headers["Access-Control-Allow-Origin"] = origin
-        response.headers["Access-Control-Allow-Credentials"] = "true"
-        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
-        response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, Accept, Origin, X-Requested-With, x-farmer-id"
-        response.headers["Access-Control-Expose-Headers"] = "*"
-        
-        return response
-    
-    # For non-CORS requests, proceed normally
-    return await call_next(request)
 
 
 # Request/Response Models
@@ -456,6 +428,8 @@ app.include_router(blockchain_router, prefix="/api/feature6", tags=["Feature 6: 
 from face_auth.router import router as face_router
 app.include_router(face_router, prefix="/api/face-auth", tags=["Face Auth"])
 app.include_router(hardware_router)
+app.include_router(admin_router)
+app.include_router(news_router, prefix="/api")
 
 
 if __name__ == "__main__":
