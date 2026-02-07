@@ -180,12 +180,12 @@ python test_face_detection.py
 ### API Testing
 ```bash
 # Test registration
-curl -X POST http://localhost:8000/api/auth/signup \
+curl -X POST https://let-go-3-0.onrender.com/api/auth/signup \
   -H "Content-Type: application/json" \
   -d '{"full_name": "Test User", "role": "farmer", "face_images": [...]}'
 
 # Test login
-curl -X POST http://localhost:8000/api/auth/login/face \
+curl -X POST https://let-go-3-0.onrender.com/api/auth/login/face \
   -H "Content-Type: application/json" \
   -d '{"face_image": "data:image/jpeg;base64,..."}'
 ```

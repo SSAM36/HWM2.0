@@ -1,5 +1,5 @@
 // API Configuration
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://localhost:8000';
 
 // Create axios instance with default configuration
 import axios from 'axios';
@@ -58,7 +58,7 @@ export const getApiUrl = (endpoint = '') => {
 
 // Helper function to get frontend URL
 export const getFrontendUrl = (path = '') => {
-    const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5173';
+    const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://localhost:5173';
     return `${baseUrl}${path.startsWith('/') ? path : '/' + path}`;
 };
 

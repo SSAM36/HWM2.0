@@ -18,7 +18,14 @@ from equipment_analyzer import (
     get_analysis_history,
     get_maintenance_schedules
 )
+from subsidy_service import get_all_subsidies, calculate_subsidy_amount, get_available_states
+from feature1.router import router as feature1_router
+from feature2.router import router as feature2_router
+from feature3.api import router as feature3_router
 from auth.router import router as auth_router
+from sensor_service import get_latest_sensor_data
+from hardware_router import router as hardware_router
+
 app = FastAPI(
     title="Annadata Saathi API",
     description="Multi-agent precision agriculture system for farm intelligence and automated controls",
@@ -30,10 +37,10 @@ app = FastAPI(
 ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "").split(",") if os.getenv("ALLOWED_ORIGINS") else []
 
 origins = [
-    "http://localhost:5173",  # Vite local
-    "http://localhost:3000",
-    "http://localhost:5174",  # Sometimes Vite falls back to this
-    "http://127.0.0.1:5173",  # Alternative localhost
+    "https://localhost:5173",  # Vite local
+    "https://localhost:3000",
+    "https://localhost:5174",  # Sometimes Vite falls back to this
+    "https://127.0.0.1:5173",  # Alternative localhost
     "https://let-go-3-0.vercel.app",  # Your Vercel production URL
     "https://lets-go-3-frontend.vercel.app",  # Alternative Vercel URL
     *ALLOWED_ORIGINS  # Additional origins from environment variable
@@ -54,7 +61,7 @@ app.add_middleware(
 from fastapi import Request, Response
 
 # Additional CORS middleware for Vercel compatibility
-@app.middleware("http")
+@app.middleware("https")
 async def cors_middleware(request: Request, call_next):
     origin = request.headers.get("origin")
     
