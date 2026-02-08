@@ -1,115 +1,212 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import {
-    CloudRain, Sprout, Tractor, LineChart,
-    ShieldCheck, Phone, ArrowRight, UserCheck,
-    FileText, Activity, MapPin
+    Sprout, Tractor, LineChart,
+    Phone, ArrowRight, UserCheck,
+    FileText, Activity, MapPin, Shield, Zap, Users, TrendingUp, Sun, CheckCircle, Camera, CloudSun
 } from 'lucide-react';
 
 const HeroSection = () => {
     const { t } = useTranslation();
+
     return (
-        <section className="bg-slate-50 dark:bg-slate-900 pt-16 pb-24 border-b border-slate-200 dark:border-slate-800">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-sm font-bold mb-8 border border-blue-200 dark:border-blue-800">
-                    <ShieldCheck size={16} />
-                    <span>Official Portal for Smart Agriculture</span>
-                </div>
+        <section className="relative min-h-[95vh] flex items-center overflow-hidden">
+            {/* Hero Background Image */}
+            <div className="absolute inset-0">
+                <img
+                    src="/assets/field-crop.jpg"
+                    alt="Farm field with crops"
+                    className="w-full h-full object-cover"
+                />
+                {/* Dark Overlay for text readability */}
+                <div className="absolute inset-0 bg-gradient-to-r from-slate-950/90 via-slate-950/70 to-slate-950/50" />
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent" />
+            </div>
 
-                <h1 className="text-4xl md:text-6xl font-bold text-slate-900 dark:text-white mb-6 tracking-tight leading-tight">
-                    {t('landing_hero_title') || "Empowering Farmers,"}<br />
-                    <span className="text-organic-green">{t('landing_hero_subtitle') || "Securing the Future."}</span>
-                </h1>
+            {/* Content */}
+            <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 lg:py-32">
+                <motion.div
+                    initial={{ opacity: 0, x: -30 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.7 }}
+                    className="text-center lg:text-left max-w-3xl"
+                >
+                        <h1 className="text-4xl sm:text-5xl lg:text-7xl font-bold text-white mb-6 leading-tight tracking-tight">
+                            Your Land. <br />
+                            <span className="text-green-400">Your Legacy.</span>
+                        </h1>
 
-                <p className="max-w-3xl mx-auto text-lg md:text-xl text-slate-600 dark:text-slate-400 mb-10 leading-relaxed font-normal">
-                    {t('landing_hero_desc') || "Access government schemes, real-time crop health analysis, and AI-driven market insights all in one simple, accessible platform."}
-                </p>
+                        <p className="text-lg sm:text-xl text-slate-300 mb-10 max-w-2xl mx-auto lg:mx-0 leading-relaxed">
+                            Connect with the land that feeds millions. Smart farming tools built for Indian farmers, by farmers who understand your soil.
+                        </p>
 
-                <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-                    <Link
-                        to="/auth"
-                        className="w-full sm:w-auto px-8 py-4 bg-organic-green hover:bg-green-800 text-white font-bold text-lg rounded-lg shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2"
-                    >
-                        <UserCheck size={20} />
-                        {t('get_started') || "Farmer Login / Register"}
-                    </Link>
-                    <button className="w-full sm:w-auto px-8 py-4 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-600 font-bold text-lg rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-all">
-                        {t('view_demo') || "How it Works"}
-                    </button>
-                </div>
+                        <div className="flex flex-col sm:flex-row items-center gap-4 justify-center lg:justify-start">
+                            <Link
+                                to="/auth"
+                                className="w-full sm:w-auto px-8 py-4 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-bold text-lg rounded-xl shadow-lg hover:shadow-xl hover:shadow-green-500/30 transition-all flex items-center justify-center gap-3 group"
+                            >
+                                {t('get_started') || "Get Started"}
+                                <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
+                            </Link>
+                        </div>
+                    </motion.div>
             </div>
         </section>
     );
 };
 
-const ServiceCard = ({ icon: Icon, title, desc, link }) => (
-    <Link to={link || '#'} className="block h-full group">
-        <div className="h-full bg-white dark:bg-slate-800 p-6 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-organic-green dark:hover:border-organic-green hover:shadow-md transition-all flex flex-col">
-            <div className="w-12 h-12 bg-slate-100 dark:bg-slate-700 rounded-lg flex items-center justify-center text-organic-green group-hover:bg-organic-green group-hover:text-white transition-colors mb-4">
-                <Icon size={24} />
-            </div>
-            <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">{title}</h3>
-            <p className="text-slate-500 dark:text-slate-400 text-sm leading-relaxed flex-1">{desc}</p>
-            <div className="mt-4 flex items-center text-organic-green font-bold text-sm">
-                Access Service <ArrowRight size={16} className="ml-1 group-hover:translate-x-1 transition-transform" />
-            </div>
-        </div>
-    </Link>
-);
+import CardSwap from '../components/ui/CardSwap';
 
 const ServicesGrid = () => {
     const { t } = useTranslation();
+
     const services = [
         {
-            icon: Activity,
-            title: "Crop Health Check",
-            desc: "Upload photos to detect diseases instantly using AI models approved by agricultural universities.",
-            link: "/dashboard"
-        },
-        {
             icon: Sprout,
-            title: "Expert Recommendations",
-            desc: "Get personalized Advice on fertilizers, seeds, and irrigation based on your soil type.",
-            link: "/crop-recommendation"
+            title: "Crop Health Monitor",
+            desc: "AI-powered disease detection using computer vision. Upload crop images and get instant diagnosis with treatment recommendations.",
+            link: "/crop-health",
+            image: "/assets/leaf-image.webp",
+            features: [
+                "Real-time disease detection",
+                "Treatment recommendations",
+                "Pest identification",
+                "Growth tracking"
+            ]
         },
         {
             icon: FileText,
             title: "Government Schemes",
-            desc: "Check eligibility and apply for subsidies like PM-KISAN, crop insurance, and equipment grants.",
-            link: "/schemes-assistant"
+            desc: "Access PM-KISAN, PMFBY, and other agricultural schemes. Apply online with guided assistance and track your application status.",
+            link: "/schemes",
+            image: "/assets/farmer-crop-scan.jpg.png",
+            features: [
+                "PM-KISAN direct benefits",
+                "Crop insurance (PMFBY)",
+                "Subsidy applications",
+                "Status tracking"
+            ]
         },
         {
-            icon: Tractor,
-            title: "Equipment & Tools",
-            desc: "Analyze and maintain your farm equipment with our digital maintenance logs.",
-            link: "/equipment"
+            icon: Activity,
+            title: "IoT Sensor Dashboard",
+            desc: "Real-time monitoring of NPK levels, soil moisture, pH, and temperature from your field sensors with AI-driven insights.",
+            link: "/dashboard",
+            image: "/assets/iot-testing.png",
+            features: [
+                "NPK level monitoring",
+                "Soil moisture tracking",
+                "pH & temperature data",
+                "Automated alerts"
+            ]
         },
         {
             icon: LineChart,
-            title: "Market Prices (Mandi)",
-            desc: "View real-time prices from local Mandis to ensure you get the best value for your produce.",
-            link: "/inventory"
+            title: "Market Intelligence",
+            desc: "Live mandi prices from across India with AI-powered price predictions. Know the best time to sell your produce.",
+            link: "/dashboard",
+            image: "/assets/Market.png",
+            features: [
+                "Live mandi prices",
+                "Price predictions",
+                "Market trends",
+                "Best selling time"
+            ]
+        },
+        {
+            icon: Tractor,
+            title: "Crop Insurance",
+            desc: "Quick insurance claims with satellite-based crop damage verification. Get compensated faster with automated processing.",
+            link: "/schemes",
+            image: "/assets/leaf-image.webp",
+            features: [
+                "Satellite verification",
+                "Quick claim processing",
+                "Damage assessment",
+                "Automated compensation"
+            ]
         },
         {
             icon: MapPin,
-            title: "Land Mapping",
-            desc: "Digitally map your farm boundaries and soil health zones for precision farming.",
-            link: "/mark-my-land"
+            title: "Smart Farm Mapping",
+            desc: "Zone-wise farm management with intelligent irrigation scheduling. Optimize water usage and increase yield efficiency.",
+            link: "/dashboard",
+            image: "/assets/smart_irrigation.png",
+            features: [
+                "Zone mapping",
+                "Irrigation scheduling",
+                "Water optimization",
+                "Yield tracking"
+            ]
         }
     ];
 
     return (
-        <section className="py-20 bg-white dark:bg-slate-950">
+        <section className="py-20 bg-slate-50 dark:bg-slate-950">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div className="text-center mb-16">
-                    <h2 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white mb-4">Digital Services for Farmers</h2>
-                    <p className="text-slate-500 max-w-2xl mx-auto">Access all essential agricultural services from a single dashboard.</p>
-                </div>
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    className="text-center mb-16"
+                >
+                    <span className="inline-block px-4 py-1.5 bg-green-500/10 text-green-600 dark:text-green-400 text-sm font-bold rounded-full mb-4">
+                        Platform Features
+                    </span>
+                    <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 dark:text-white mb-4">
+                        Everything Your Farm Needs
+                    </h2>
+                    <p className="text-lg text-slate-600 dark:text-slate-400 max-w-2xl mx-auto">
+                        Comprehensive digital tools designed for modern Indian agriculture
+                    </p>
+                </motion.div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {services.map((s, i) => (
-                        <ServiceCard key={i} {...s} />
+                <CardSwap services={services} />
+            </div>
+        </section>
+    );
+};
+
+const ImpactSection = () => {
+    const stats = [
+        { value: "15,000+", label: "Registered Farmers", icon: Users },
+        { value: "₹2.5 Cr", label: "Claims Processed", icon: TrendingUp },
+        { value: "50,000+", label: "Crop Scans", icon: Camera },
+        { value: "12", label: "States Covered", icon: MapPin },
+    ];
+
+    return (
+        <section className="py-20 bg-gradient-to-br from-organic-green-600 to-organic-green-800 text-white relative overflow-hidden">
+            {/* Pattern Overlay */}
+            <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'60\' height=\'60\' viewBox=\'0 0 60 60\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cg fill=\'none\' fill-rule=\'evenodd\'%3E%3Cg fill=\'%23ffffff\' fill-opacity=\'1\'%3E%3Cpath d=\'M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z\'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")' }} />
+
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    className="text-center mb-12"
+                >
+                    <h2 className="text-3xl sm:text-4xl font-bold mb-4">Our Impact Across India</h2>
+                    <p className="text-lg opacity-90 max-w-2xl mx-auto">Empowering farmers with technology and financial support</p>
+                </motion.div>
+
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+                    {stats.map((stat, i) => (
+                        <motion.div
+                            key={i}
+                            initial={{ opacity: 0, scale: 0.9 }}
+                            whileInView={{ opacity: 1, scale: 1 }}
+                            viewport={{ once: true }}
+                            transition={{ delay: i * 0.1 }}
+                            className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 text-center border border-white/20"
+                        >
+                            <stat.icon size={32} className="mx-auto mb-3 opacity-80" />
+                            <p className="text-3xl sm:text-4xl font-bold mb-1">{stat.value}</p>
+                            <p className="text-sm opacity-80">{stat.label}</p>
+                        </motion.div>
                     ))}
                 </div>
             </div>
@@ -117,49 +214,57 @@ const ServicesGrid = () => {
     );
 };
 
-const StatCard = ({ label, value }) => (
-    <div className="p-6 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-center">
-        <div className="text-4xl font-bold text-gov-blue mb-2">{value}</div>
-        <div className="text-sm font-bold text-slate-500 uppercase tracking-wider">{label}</div>
-    </div>
-);
-
-const ImpactSection = () => {
-    const { t } = useTranslation();
+const HelpLine = () => {
     return (
-        <section className="py-20 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50">
-            <div className="max-w-7xl mx-auto px-4 text-center">
-                <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-12">Trusted by Farmers Across The Nation</h2>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                    <StatCard label={t("water_saved") || "Water Saved"} value="42%" />
-                    <StatCard label={t("yield_increase") || "Yield Increase"} value="25%" />
-                    <StatCard label={t("farmers") || "Farmers"} value="15,000+" />
-                    <StatCard label={t("districts") || "Villages"} value="120+" />
+        <section className="py-16 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800">
+            <div className="max-w-4xl mx-auto px-4 sm:px-6 text-center">
+                <div className="flex items-center justify-center gap-3 mb-4">
+                    <div className="w-12 h-12 bg-organic-green/10 rounded-full flex items-center justify-center">
+                        <Phone size={24} className="text-organic-green" />
+                    </div>
+                    <h3 className="text-2xl font-bold text-slate-900 dark:text-white">Farmer Helpline</h3>
                 </div>
+                <a href="tel:1800-180-1551" className="text-4xl font-bold text-organic-green hover:underline">
+                    1800-180-1551
+                </a>
+                <p className="text-slate-500 dark:text-slate-400 mt-2">Toll-free | 24x7 | Available in Hindi & English</p>
             </div>
         </section>
     );
 };
 
-const HelpLine = () => (
-    <section className="bg-gov-blue py-12 text-white">
-        <div className="max-w-7xl mx-auto px-4 flex flex-col md:flex-row items-center justify-between gap-8">
-            <div className="text-center md:text-left">
-                <h3 className="text-2xl font-bold mb-2">Technical Support Helpline</h3>
-                <p className="text-blue-100">Our agronomy experts are available 24/7 to assist you.</p>
+const Footer = () => {
+    return (
+        <footer className="bg-slate-900 text-white py-12 border-t border-slate-800">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+                    <div className="flex items-center gap-3">
+                        <img src="/logo.png" alt="Logo" className="w-10 h-10 rounded-xl" />
+                        <div>
+                            <p className="font-bold">ANNADATA SAATHI</p>
+                            <p className="text-xs text-slate-400">Digital Agriculture Ecosystem</p>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-6 text-sm text-slate-400">
+                        <Link to="/about" className="hover:text-white transition-colors">About</Link>
+                        <Link to="/contact" className="hover:text-white transition-colors">Contact</Link>
+                        <Link to="/privacy" className="hover:text-white transition-colors">Privacy</Link>
+                        <Link to="/terms" className="hover:text-white transition-colors">Terms</Link>
+                    </div>
+                    <p className="text-sm text-slate-500">© 2026 Ministry of Agriculture. All Rights Reserved.</p>
+                </div>
             </div>
-            <a href="tel:1800-123-456" className="flex items-center gap-3 px-8 py-4 bg-white text-blue-700 rounded-full font-bold text-xl hover:bg-blue-50 transition-colors shadow-lg">
-                <Phone size={24} />
-                <span>1800-123-456</span>
-            </a>
-        </div>
-    </section>
-);
+        </footer>
+    );
+};
+
+import ModuleSelection from '../components/features/ModuleSelection';
 
 const LandingPage = () => {
     return (
-        <div className="min-h-screen font-sans">
+        <div className="min-h-screen bg-white dark:bg-slate-950">
             <HeroSection />
+            <ModuleSelection />
             <ServicesGrid />
             <ImpactSection />
             <HelpLine />

@@ -58,9 +58,19 @@ class TwilioManager:
                 # Fallback for Trial Accounts with unverified numbers
                 if "unverified" in error_str.lower() or "trial account" in error_str.lower():
                     print("⚠️ Falling back to Mock Call due to Trial Account limitations.")
-                    return {"status": "mock_called", "to": to_number, "note": "Trial Account: Number unverified"}
+                    return {
+                        "status": "mock_called", 
+                        "to": to_number, 
+                        "message": f"✅ Demo Mode: Consultation request logged for {to_number}",
+                        "note": "To enable real calls, verify this number at: https://console.twilio.com/us1/develop/phone-numbers/manage/verified"
+                    }
                 
                 return {"status": "failed", "error": error_str}
         else:
             print(f"🔔 [MOCK CALL] To: {to_number} | Message: Automated consultation request.")
-            return {"status": "mock_called", "to": to_number}
+            return {
+                "status": "mock_called", 
+                "to": to_number,
+                "message": f"✅ Demo Mode: Consultation would be initiated to {to_number}"
+            }
+

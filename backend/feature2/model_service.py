@@ -1,4 +1,8 @@
 import os
+# Suppress TensorFlow info/warning messages (must be set before importing TF)
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # Suppress all logs except errors
+os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'  # Disable oneDNN custom operations
+
 import numpy as np
 import io
 from PIL import Image
@@ -79,14 +83,12 @@ def preprocess_image(image_bytes):
         print(f"Error processing image: {e}")
         return None
 
-import cv2
-import base64
-
 def analyze_image_quality(image_bytes):
     """
     Checks for Blur and Brightness using OpenCV.
     """
     try:
+        import cv2
         # Convert bytes to numpy array
         nparr = np.frombuffer(image_bytes, np.uint8)
         img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
@@ -115,6 +117,9 @@ def analyze_image_quality(image_bytes):
             "message": " & ".join(messages) if messages else "Image Quality: Good",
             "score": laplacian_var
         }
+    except ImportError:
+        print("⚠️ OpenCV not available, skipping quality check")
+        return {"valid": True, "message": "Quality check unavailable"}
     except Exception as e:
         print(f"Quality Check Error: {e}")
         return {"valid": True, "message": "Skipped quality check"}
@@ -125,8 +130,14 @@ def generate_stress_heatmap(image_bytes):
     Returns Base64 string of the processed image.
     """
     try:
+        import cv2
+        import base64
+        
         nparr = np.frombuffer(image_bytes, np.uint8)
         img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        
+        if img is None:
+            return None
         
         # Convert to HSV
         hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
@@ -142,7 +153,6 @@ def generate_stress_heatmap(image_bytes):
         mask_stress = cv2.bitwise_not(mask_green)
         
         # Create Heatmap (Red/Yellow for stress)
-        # We apply a color map to the stress mask
         heatmap_img = cv2.applyColorMap(mask_stress, cv2.COLORMAP_JET)
         
         # Overlay heatmap on original image (weighted)
@@ -154,6 +164,9 @@ def generate_stress_heatmap(image_bytes):
         
         return f"data:image/jpeg;base64,{img_str}"
         
+    except ImportError:
+        print("⚠️ OpenCV not available, skipping heatmap generation")
+        return None
     except Exception as e:
         print(f"Heatmap Error: {e}")
         return None
@@ -165,23 +178,41 @@ def predict_disease(image_bytes: bytes):
     """
     global _interpreter
     
+    print(f"🔍 Starting prediction for image of size {len(image_bytes)} bytes")
+    
     # Lazy load model on first use (saves memory on startup)
     if _interpreter is None:
+        print("📦 Model not loaded, loading now...")
         load_model()
     
-    # 0. Run Quality Check & Heatmap
-    quality = analyze_image_quality(image_bytes)
-    heatmap = generate_stress_heatmap(image_bytes)
+    # 0. Run Quality Check & Heatmap (with error protection)
+    try:
+        quality = analyze_image_quality(image_bytes)
+        print(f"✓ Quality check: {quality.get('message', 'Done')}")
+    except Exception as e:
+        print(f"⚠️ Quality check failed: {e}")
+        quality = {"valid": True, "message": "Quality check skipped"}
+    
+    try:
+        heatmap = generate_stress_heatmap(image_bytes)
+        print(f"✓ Heatmap generated: {'Yes' if heatmap else 'No'}")
+    except Exception as e:
+        print(f"⚠️ Heatmap generation failed: {e}")
+        heatmap = None
     
     # 1. Preprocess
     img_array = preprocess_image(image_bytes)
     if img_array is None:
+        print("❌ Image preprocessing failed")
         return {"error": "Invalid Image"}
+    
+    print(f"✓ Image preprocessed: shape {img_array.shape}")
 
     # 2. Run TFLite Prediction
     prediction_result = {}
     if _interpreter:
         try:
+            print("🤖 Running model inference...")
             # Set input tensor
             _interpreter.set_tensor(_input_details[0]["index"], img_array)
             _interpreter.invoke()
@@ -201,11 +232,15 @@ def predict_disease(image_bytes: bytes):
                 "confidence": confidence,
                 "is_mock": False
             }
+            print(f"✅ Prediction: {class_name} ({confidence:.2%})")
         except Exception as e:
-            print(f"Prediction Error: {e}")
+            print(f"❌ Model inference error: {e}")
+            import traceback
+            print(traceback.format_exc())
     
     if not prediction_result:
         # 3. Mock Fallback (if model missing or error)
+        print("⚠️ Using mock prediction")
         import random
         random.seed(len(image_bytes)) 
         mock_class = random.choice(CLASS_NAMES)

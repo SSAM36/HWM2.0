@@ -15,6 +15,7 @@ const STATIC_AGRONOMISTS = [
 ];
 
 const CameraDiagnose = () => {
+    const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
     const { t, i18n } = useTranslation();
     const [image, setImage] = useState(null);
     const [loading, setLoading] = useState(false);
@@ -77,7 +78,7 @@ const CameraDiagnose = () => {
             const formData = new FormData();
             formData.append('file', blob, 'crop_image.jpg');
 
-            const response = await fetch('https://127.0.0.1:8000/api/feature2/predict', {
+            const response = await fetch(`${apiBase}/api/feature2/predict`, {
                 method: 'POST',
                 body: formData
             });
@@ -100,7 +101,7 @@ const CameraDiagnose = () => {
     const getAnalysis = async () => {
         setLoading(true);
         try {
-            const response = await fetch('https://127.0.0.1:8000/api/feature2/analyze', {
+            const response = await fetch(`${apiBase}/api/feature2/analyze`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -138,10 +139,25 @@ const CameraDiagnose = () => {
 
             setAnalysis({ ...data, parsedPlan, parsedSubsidy });
 
-            // Set Experts for Consultation
-            if (STATIC_AGRONOMISTS && STATIC_AGRONOMISTS.length > 0) {
-                const shuffled = [...STATIC_AGRONOMISTS].sort(() => 0.5 - Math.random());
-                setExperts(shuffled.slice(0, 2));
+            // Fetch Experts from Database
+            try {
+                const expertsResponse = await fetch(`${apiBase}/api/feature2/agronomists?count=2`);
+                if (expertsResponse.ok) {
+                    const expertsData = await expertsResponse.json();
+                    if (expertsData.agronomists && expertsData.agronomists.length > 0) {
+                        setExperts(expertsData.agronomists);
+                    } else {
+                        // Fallback to static if API returns empty
+                        setExperts(STATIC_AGRONOMISTS.slice(0, 2));
+                    }
+                } else {
+                    // Fallback to static on error
+                    setExperts(STATIC_AGRONOMISTS.slice(0, 2));
+                }
+            } catch (err) {
+                console.error("Failed to fetch agronomists from DB:", err);
+                // Fallback to static agronomists
+                setExperts(STATIC_AGRONOMISTS.slice(0, 2));
             }
 
             // Initialize Chat with the Analysis Report
@@ -167,7 +183,7 @@ const CameraDiagnose = () => {
         setChatLoading(true);
 
         try {
-            const response = await fetch('https://127.0.0.1:8000/api/feature2/agent/chat', {
+            const response = await fetch(`${apiBase}/api/feature2/agent/chat`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -286,36 +302,39 @@ const CameraDiagnose = () => {
 
     return (
         <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans transition-colors duration-300">
+            {/* Green Accent Bar */}
+            <div className="h-1.5 bg-gradient-to-r from-organic-green-600 via-organic-green-500 to-organic-green-400" />
+
             {/* Header */}
             <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-50 shadow-sm">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                        <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg text-green-600 dark:text-green-500">
-                            <Leaf size={24} />
+                        <div className="w-10 h-10 rounded-xl overflow-hidden shadow-md">
+                            <img src="/logo.png" alt="Logo" className="w-full h-full object-cover" />
                         </div>
                         <div>
-                            <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white leading-none">
-                                Agro<span className="text-green-600 dark:text-green-500">Tech</span>
+                            <h1 className="text-lg font-bold tracking-tight text-slate-900 dark:text-white leading-none">
+                                ANNADATA<span className="text-organic-green font-extrabold">SAATHI</span>
                             </h1>
-                            <p className="text-[10px] text-slate-500 font-medium uppercase tracking-wider">{t('cropHealth.diagnosticCenter')}</p>
+                            <p className="text-[10px] text-slate-500 font-medium uppercase tracking-wider">{t('cropHealth.diagnosticCenter') || 'Crop Diagnostic Center'}</p>
                         </div>
                     </div>
-                    <div className="flex items-center gap-6">
-                        <div className="hidden md:flex items-center gap-6 text-sm font-medium text-slate-600 dark:text-slate-400">
-                            <div className="flex items-center gap-2 px-3 py-1 bg-slate-100 dark:bg-slate-800 rounded-full">
+                    <div className="flex items-center gap-4">
+                        <div className="hidden md:flex items-center gap-4 text-sm font-medium text-slate-600 dark:text-slate-400">
+                            <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
                                 <ThermometerSun size={16} className="text-orange-500" />
-                                <span>32°C</span>
+                                <span className="font-semibold">32°C</span>
                             </div>
-                            <div className="flex items-center gap-2 px-3 py-1 bg-slate-100 dark:bg-slate-800 rounded-full">
+                            <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
                                 <Droplets size={16} className="text-blue-500" />
-                                <span>65%</span>
+                                <span className="font-semibold">65%</span>
                             </div>
                         </div>
-                        <div className="h-8 w-px bg-slate-200 dark:bg-slate-800 hidden md:block"></div>
+                        <div className="h-8 w-px bg-slate-200 dark:bg-slate-700 hidden md:block"></div>
                         <button
                             onClick={() => window.location.reload()}
-                            className="p-2 text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-all"
-                            title={t('cropHealth.resetSystem')}
+                            className="p-2.5 text-slate-500 hover:text-organic-green hover:bg-organic-green/10 rounded-lg transition-all"
+                            title={t('cropHealth.resetSystem') || 'Reset System'}
                         >
                             <RefreshCw size={20} />
                         </button>
@@ -538,14 +557,105 @@ const CameraDiagnose = () => {
                                             <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800">
                                                 <h4 className="text-xs font-bold text-slate-500 uppercase mb-3">{t('cropHealth.recoveryForecast')}</h4>
                                                 {analysis.parsedPlan.recovery_forecast ? (
-                                                    <div className="flex items-end justify-between h-16 gap-1">
-                                                        {analysis.parsedPlan.recovery_forecast.map((val, i) => (
-                                                            <div key={i} className="flex-1 flex flex-col justify-end gap-1 relative group">
-                                                                <div className="bg-blue-100 dark:bg-blue-900/30 w-full rounded-t-sm" style={{ height: `${val}%` }}>
-                                                                    <div className="w-full h-full bg-blue-500/80 hover:bg-blue-600 transition-colors rounded-t-sm"></div>
+                                                    <div className="space-y-4">
+                                                        {/* Line Graph */}
+                                                        <div className="relative h-32 flex items-end justify-between gap-2">
+                                                            {/* Y-Axis Labels */}
+                                                            <div className="absolute left-0 top-0 h-full flex flex-col justify-between text-[10px] text-slate-400">
+                                                                <span>100%</span>
+                                                                <span>50%</span>
+                                                                <span>0%</span>
+                                                            </div>
+
+                                                            {/* Graph Area */}
+                                                            <div className="flex-1 ml-8 relative h-full">
+                                                                {/* Grid Lines */}
+                                                                <div className="absolute inset-0 flex flex-col justify-between">
+                                                                    <div className="w-full h-px bg-slate-200 dark:bg-slate-700"></div>
+                                                                    <div className="w-full h-px bg-slate-200 dark:bg-slate-700"></div>
+                                                                    <div className="w-full h-px bg-slate-200 dark:bg-slate-700"></div>
+                                                                </div>
+
+                                                                {/* Line Graph with Points */}
+                                                                <svg className="absolute inset-0 w-full h-full" preserveAspectRatio="none">
+                                                                    {/* Recovery Line */}
+                                                                    <polyline
+                                                                        points={analysis.parsedPlan.recovery_forecast.map((val, i) => {
+                                                                            const x = (i / (analysis.parsedPlan.recovery_forecast.length - 1)) * 100;
+                                                                            const y = 100 - val;
+                                                                            return `${x}%,${y}%`;
+                                                                        }).join(' ')}
+                                                                        fill="none"
+                                                                        stroke="url(#recoveryGradient)"
+                                                                        strokeWidth="3"
+                                                                        strokeLinecap="round"
+                                                                        strokeLinejoin="round"
+                                                                        className="drop-shadow-md"
+                                                                    />
+
+                                                                    {/* Gradient Definition */}
+                                                                    <defs>
+                                                                        <linearGradient id="recoveryGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                                                                            <stop offset="0%" stopColor="#ef4444" />
+                                                                            <stop offset="50%" stopColor="#f59e0b" />
+                                                                            <stop offset="100%" stopColor="#10b981" />
+                                                                        </linearGradient>
+                                                                    </defs>
+
+                                                                    {/* Data Points */}
+                                                                    {analysis.parsedPlan.recovery_forecast.map((val, i) => {
+                                                                        const x = (i / (analysis.parsedPlan.recovery_forecast.length - 1)) * 100;
+                                                                        const y = 100 - val;
+                                                                        return (
+                                                                            <circle
+                                                                                key={i}
+                                                                                cx={`${x}%`}
+                                                                                cy={`${y}%`}
+                                                                                r="5"
+                                                                                fill={val < 30 ? '#ef4444' : val < 70 ? '#f59e0b' : '#10b981'}
+                                                                                className="drop-shadow-lg animate-pulse"
+                                                                            />
+                                                                        );
+                                                                    })}
+                                                                </svg>
+
+                                                                {/* Hover Tooltips */}
+                                                                <div className="absolute inset-0 flex items-end justify-between">
+                                                                    {analysis.parsedPlan.recovery_forecast.map((val, i) => (
+                                                                        <div key={i} className="flex-1 flex flex-col items-center group">
+                                                                            <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-slate-800 dark:bg-slate-700 text-white text-[10px] px-2 py-1 rounded shadow-lg mb-1">
+                                                                                {val}%
+                                                                            </div>
+                                                                        </div>
+                                                                    ))}
                                                                 </div>
                                                             </div>
-                                                        ))}
+                                                        </div>
+
+                                                        {/* X-Axis Labels (Weeks) */}
+                                                        <div className="flex items-center justify-between text-[10px] text-slate-400 px-2">
+                                                            {analysis.parsedPlan.recovery_forecast.map((_, i) => (
+                                                                <span key={i} className="flex-1 text-center font-medium">
+                                                                    Week {i + 1}
+                                                                </span>
+                                                            ))}
+                                                        </div>
+
+                                                        {/* Recovery Status Indicator */}
+                                                        <div className="flex items-center justify-center gap-2 pt-2 border-t border-slate-200 dark:border-slate-700">
+                                                            <div className="flex items-center gap-1.5 text-[10px]">
+                                                                <span className="w-2 h-2 rounded-full bg-red-500"></span>
+                                                                <span className="text-slate-500">Critical</span>
+                                                            </div>
+                                                            <div className="flex items-center gap-1.5 text-[10px]">
+                                                                <span className="w-2 h-2 rounded-full bg-orange-500"></span>
+                                                                <span className="text-slate-500">Moderate</span>
+                                                            </div>
+                                                            <div className="flex items-center gap-1.5 text-[10px]">
+                                                                <span className="w-2 h-2 rounded-full bg-green-500"></span>
+                                                                <span className="text-slate-500">Healthy</span>
+                                                            </div>
+                                                        </div>
                                                     </div>
                                                 ) : <span className="text-sm text-slate-500">{t('cropHealth.noForecastData')}</span>}
                                             </div>
@@ -746,12 +856,18 @@ const CameraDiagnose = () => {
                                                                     btn.disabled = true;
                                                                     btn.innerHTML = '<span class="animate-spin mr-2">⏳</span> Calling...';
                                                                     try {
-                                                                        const apiBase = import.meta.env.VITE_API_BASE_URL || 'https://let-go-3-0.onrender.com';
                                                                         const res = await fetch(`${apiBase}/api/feature3/consultation-call?to_number=${encodeURIComponent(exp.phone)}`, { method: 'POST' });
                                                                         const data = await res.json();
-                                                                        if (data.status === 'called') alert(`Twilio Call Initiated to ${exp.name}. Your phone should ring shortly.`);
-                                                                        else if (data.status === 'mock_called') alert(`[Demo Mode] Consultation request sent to ${exp.name} via mock service.`);
-                                                                        else alert("Call failed: " + (data.error || "Unknown error"));
+
+                                                                        if (data.status === 'called') {
+                                                                            alert(`✅ Call Initiated!\n\nCalling ${exp.name} at ${exp.phone}.\nThe agronomist should receive the call shortly.`);
+                                                                        } else if (data.status === 'mock_called') {
+                                                                            const message = data.message || `Demo Mode: Consultation request sent to ${exp.name}`;
+                                                                            const note = data.note ? `\n\n${data.note}` : '';
+                                                                            alert(`${message}${note}`);
+                                                                        } else {
+                                                                            alert("❌ Call failed: " + (data.error || "Unknown error"));
+                                                                        }
                                                                     } catch (e) {
                                                                         alert("Failed to connect to Twilio service.");
                                                                     } finally {
@@ -778,9 +894,34 @@ const CameraDiagnose = () => {
                                                 <div className="space-y-3">
                                                     {analysis.parsedSubsidy.schemes.map((scheme, i) => (
                                                         <div key={i} className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-indigo-100 dark:border-indigo-500/20 shadow-sm">
-                                                            <h5 className="font-bold text-indigo-900 dark:text-indigo-100 text-sm">{scheme.name}</h5>
-                                                            <p className="text-xs text-indigo-700 dark:text-indigo-300 mt-1">{scheme.details}</p>
-                                                            {scheme.benefits && <p className="text-xs text-indigo-600 dark:text-indigo-400 mt-2 font-medium">✨ Benefit: {scheme.benefits}</p>}
+                                                            <div className="flex items-start justify-between gap-3">
+                                                                <div className="flex-1">
+                                                                    <h5 className="font-bold text-indigo-900 dark:text-indigo-100 text-sm">{scheme.name}</h5>
+                                                                    <p className="text-xs text-indigo-700 dark:text-indigo-300 mt-1">{scheme.details}</p>
+                                                                    {scheme.benefits && <p className="text-xs text-indigo-600 dark:text-indigo-400 mt-2 font-medium">✨ Benefit: {scheme.benefits}</p>}
+                                                                </div>
+                                                                {scheme.website_url ? (
+                                                                    <a
+                                                                        href={scheme.website_url}
+                                                                        target="_blank"
+                                                                        rel="noopener noreferrer"
+                                                                        className="shrink-0 px-3 py-2 bg-indigo-100 dark:bg-indigo-900/30 hover:bg-indigo-200 dark:hover:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5"
+                                                                    >
+                                                                        Official Site
+                                                                        <ExternalLink size={12} />
+                                                                    </a>
+                                                                ) : (
+                                                                    <a
+                                                                        href={`/schemes?search=${encodeURIComponent(scheme.name)}`}
+                                                                        target="_blank"
+                                                                        rel="noopener noreferrer"
+                                                                        className="shrink-0 px-3 py-2 bg-indigo-100 dark:bg-indigo-900/30 hover:bg-indigo-200 dark:hover:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5"
+                                                                    >
+                                                                        View Details
+                                                                        <ExternalLink size={12} />
+                                                                    </a>
+                                                                )}
+                                                            </div>
                                                         </div>
                                                     ))}
                                                 </div>

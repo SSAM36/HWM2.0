@@ -1,282 +1,229 @@
+"""
+Tools for the Farmer Support Agent (Feature 4)
+Provides scheme search, benefit calculation, and application tools
+"""
 from langchain_core.tools import tool
-from typing import Dict, List, Optional
-from feature5.subsidy_service import get_all_subsidies, calculate_subsidy_amount, CENTRAL_SUBSIDIES, STATE_SUBSIDIES
-from core.supabase_client import supabase, PROFILES_TABLE
-from datetime import datetime, timezone
-import random
-import string
+from typing import List, Dict, Any, Optional
 import json
+import random
+import time
 
-# Table for scheme applications
-APPLICATIONS_TABLE = "scheme_applications"
+# Mock schemes database (in production, this would query Supabase)
+SCHEMES_DATABASE = [
+    {
+        "id": "PM-KISAN-001",
+        "name": "PM-KISAN (Pradhan Mantri Kisan Samman Nidhi)",
+        "state": "All India",
+        "category": "All Farmers",
+        "subsidy_type": "Direct Benefit Transfer",
+        "benefit_amount": "₹6000/year",
+        "eligibility": "All landholding farmers",
+        "portal_url": "https://pmkisan.gov.in/"
+    },
+    {
+        "id": "PMFBY-002",
+        "name": "Pradhan Mantri Fasal Bima Yojana",
+        "state": "All India",
+        "category": "All Farmers",
+        "subsidy_type": "Crop Insurance",
+        "benefit_amount": "Up to 90% subsidy on premium",
+        "eligibility": "All farmers growing notified crops",
+        "portal_url": "https://pmfby.gov.in/"
+    },
+    {
+        "id": "KCC-003",
+        "name": "Kisan Credit Card Scheme",
+        "state": "All India",
+        "category": "All Farmers",
+        "subsidy_type": "Credit at subsidized rate",
+        "benefit_amount": "Up to ₹3 lakh at 4% interest",
+        "eligibility": "Farmers with land ownership",
+        "portal_url": "https://www.nabard.org/kcc.aspx"
+    },
+    {
+        "id": "SMAM-004",
+        "name": "Sub-Mission on Agricultural Mechanization",
+        "state": "All India",
+        "category": "SC/ST/Women/Small Farmers",
+        "subsidy_type": "Equipment Subsidy",
+        "benefit_amount": "40-50% subsidy on farm equipment",
+        "eligibility": "Individual farmers and groups",
+        "portal_url": "https://agrimachinery.nic.in/"
+    }
+]
 
 @tool
-def search_local_schemes(query: str, state: Optional[str] = None) -> Dict:
+def search_local_schemes(
+    state: Optional[str] = None,
+    category: Optional[str] = None,
+    crop: Optional[str] = None
+) -> List[Dict[str, Any]]:
     """
-    Search for government schemes and subsidies in the local database.
-    Useful when you need to find specific policies for farmers.
+    Search for government agricultural schemes based on location, farmer category, and crop type.
     
     Args:
-        query: The search query (e.g., "tractor", "solar pump").
-        state: The state of the farmer (e.g., "Maharashtra", "Punjab").
-    """
-    # Simple keyword mapping for local tool
-    equipment_type = None
-    if "tractor" in query.lower():
-        equipment_type = "Tractors"
-    elif "solar" in query.lower():
-        equipment_type = "Solar"
-    elif "pump" in query.lower():
-        equipment_type = "Water Pumps"
-    
-    return get_all_subsidies(equipment_type=equipment_type, state=state)
-
-@tool
-def calculate_benefits(cost: float, percentage: float, max_cap: float) -> Dict:
-    """
-    Calculate the exact subsidy amount and farmer's contribution.
-    """
-    return calculate_subsidy_amount(cost, percentage, max_cap)
-
-
-# --- New Tools for Automated Form Filling and Submission ---
-
-def _generate_reference_number() -> str:
-    """Generate a unique application reference number."""
-    prefix = "AGR"
-    timestamp = datetime.now().strftime("%y%m%d%H%M")
-    random_suffix = ''.join(random.choices(string.digits, k=4))
-    return f"{prefix}-{timestamp}-{random_suffix}"
-
-
-def _find_scheme_by_name(scheme_name: str) -> Optional[Dict]:
-    """Find a scheme by name from the database."""
-    scheme_name_lower = scheme_name.lower()
-    
-    # Search in central subsidies
-    for subsidy in CENTRAL_SUBSIDIES:
-        if scheme_name_lower in subsidy.scheme_name.lower():
-            return subsidy.to_dict()
-    
-    # Search in state subsidies
-    for state, subsidies in STATE_SUBSIDIES.items():
-        for subsidy in subsidies:
-            if scheme_name_lower in subsidy.scheme_name.lower():
-                return subsidy.to_dict()
-    
-    return None
-
-
-# Required fields for different scheme types
-SCHEME_REQUIRED_FIELDS = {
-    "default": ["name", "state", "phone", "aadhaar"],
-    "equipment": ["name", "state", "phone", "aadhaar", "land_size", "equipment_type"],
-    "solar": ["name", "state", "phone", "aadhaar", "land_size", "electricity_connection"],
-    "loan": ["name", "state", "phone", "aadhaar", "land_size", "bank_account", "income"],
-}
-
-
-def _get_required_fields(scheme_name: str) -> List[str]:
-    """Determine required fields based on scheme type."""
-    scheme_lower = scheme_name.lower()
-    
-    if "solar" in scheme_lower or "kusum" in scheme_lower:
-        return SCHEME_REQUIRED_FIELDS["solar"]
-    elif "loan" in scheme_lower or "credit" in scheme_lower or "fund" in scheme_lower:
-        return SCHEME_REQUIRED_FIELDS["loan"]
-    elif any(eq in scheme_lower for eq in ["tractor", "pump", "machinery", "equipment", "mechanization"]):
-        return SCHEME_REQUIRED_FIELDS["equipment"]
-    
-    return SCHEME_REQUIRED_FIELDS["default"]
-
-
-@tool
-def auto_fill_application(scheme_name: str, user_profile: Dict) -> Dict:
-    """
-    Automatically fill application form fields for a government scheme using user profile data.
-    Use this when the user wants to apply for a scheme and you need to prepare the application.
-    
-    Args:
-        scheme_name: Name of the scheme to apply for (e.g., "PM-KUSUM", "SMAM").
-        user_profile: User's profile data containing name, state, phone, land_size, category, etc.
+        state: The state/region (e.g., "Maharashtra", "Punjab", "All India")
+        category: Farmer category (e.g., "SC/ST", "Small Farmer", "Women", "All Farmers")
+        crop: Crop type (e.g., "Rice", "Wheat", "Cotton")
     
     Returns:
-        Dictionary with filled_fields, missing_fields, can_submit status, and scheme details.
+        List of matching schemes with details
     """
-    # Find the scheme
-    scheme = _find_scheme_by_name(scheme_name)
-    if not scheme:
-        return {
-            "success": False,
-            "error": f"Scheme '{scheme_name}' not found in database",
-            "can_submit": False,
-            "filled_fields": {},
-            "missing_fields": [],
-            "suggestions": "Please search for available schemes first using search_local_schemes tool."
-        }
+    results = []
     
-    # Get required fields for this scheme
-    required_fields = _get_required_fields(scheme_name)
+    for scheme in SCHEMES_DATABASE:
+        # Match state
+        if state and state.lower() not in scheme["state"].lower() and "all india" not in scheme["state"].lower():
+            continue
+        
+        # Match category
+        if category and category.lower() not in scheme["category"].lower() and "all farmers" not in scheme["category"].lower():
+            continue
+        
+        # For crop-specific schemes, we'd need more data
+        # For now, return schemes that match state/category
+        
+        results.append(scheme)
     
-    # Map user profile to form fields
-    profile = user_profile or {}
-    filled_fields = {}
-    missing_fields = []
-    
-    # Field mapping from profile to form
-    field_mapping = {
-        "name": profile.get("name"),
-        "state": profile.get("state"),
-        "district": profile.get("district"),
-        "phone": profile.get("phone"),
-        "aadhaar": profile.get("aadhaar", "XXXX-XXXX-XXXX"),  # Placeholder for demo
-        "land_size": profile.get("land_size"),
-        "category": profile.get("category", "General"),
-        "crops": profile.get("crops"),
-        "bank_account": profile.get("bank_account", "Auto-linked via Aadhaar"),
-        "equipment_type": profile.get("equipment_type", "As per scheme"),
-        "electricity_connection": profile.get("electricity_connection", "Yes"),
-        "income": profile.get("income", "Below 2.5 LPA"),
-    }
-    
-    # Fill available fields and track missing ones
-    for field in required_fields:
-        value = field_mapping.get(field)
-        if value and str(value).strip():
-            filled_fields[field] = value
-        else:
-            missing_fields.append(field)
-    
-    # Calculate subsidy if land_size is available
-    subsidy_info = None
-    if profile.get("land_size") and scheme.get("max_amount"):
-        estimated_cost = float(profile.get("land_size", 1)) * 50000  # Rough estimate
-        subsidy_info = calculate_subsidy_amount(
-            estimated_cost, 
-            scheme.get("subsidy_percentage", 50), 
-            scheme.get("max_amount", 100000)
-        )
-    
-    can_submit = len(missing_fields) == 0 or all(
-        f in ["aadhaar", "bank_account", "electricity_connection", "income"] 
-        for f in missing_fields
-    )
-    
-    return {
-        "success": True,
-        "scheme": scheme,
-        "filled_fields": filled_fields,
-        "missing_fields": missing_fields,
-        "can_submit": can_submit,
-        "subsidy_estimate": subsidy_info,
-        "message": "Form auto-filled successfully" if can_submit else f"Missing required fields: {', '.join(missing_fields)}"
-    }
+    return results if results else [{"message": "No matching schemes found"}]
 
 
 @tool
-def submit_scheme_application(scheme_name: str, filled_fields: Dict, user_profile: Dict) -> Dict:
+def calculate_benefits(
+    scheme_id: str,
+    land_size: Optional[float] = None,
+    crop_value: Optional[float] = None
+) -> Dict[str, Any]:
     """
-    Submit an application for a government scheme on behalf of the user.
-    Use this after auto_fill_application confirms can_submit is True.
+    Calculate potential benefits from a specific scheme.
     
     Args:
-        scheme_name: Name of the scheme to apply for.
-        filled_fields: Dictionary of form fields that have been filled.
-        user_profile: User's profile data for verification.
+        scheme_id: The ID of the scheme
+        land_size: Land size in acres/hectares
+        crop_value: Value of crops in rupees
     
     Returns:
-        Dictionary with reference_no, status, submission details, and next steps.
+        Calculated benefit details
     """
-    # Find the scheme
-    scheme = _find_scheme_by_name(scheme_name)
+    # Find scheme
+    scheme = next((s for s in SCHEMES_DATABASE if s["id"] == scheme_id), None)
+    
     if not scheme:
-        return {
-            "success": False,
-            "status": "failed",
-            "error": f"Scheme '{scheme_name}' not found",
-            "fallback_url": None
-        }
+        return {"error": "Scheme not found"}
     
-    # Validate required fields
-    profile = user_profile or {}
-    if not profile.get("name") or not profile.get("state"):
-        return {
-            "success": False,
-            "status": "incomplete",
-            "error": "Missing required profile information (name and state)",
-            "missing": ["name", "state"],
-            "fallback_url": scheme.get("application_url")
-        }
-    
-    # Generate application reference
-    reference_no = _generate_reference_number()
-    submitted_at = datetime.now(timezone.utc).isoformat()
-    
-    # Prepare application details
-    application_details = {
-        "reference_no": reference_no,
-        "scheme_name": scheme.get("scheme_name"),
-        "scheme_source": scheme.get("source"),
-        "applicant_name": profile.get("name", "Farmer"),
-        "applicant_state": profile.get("state"),
-        "applicant_category": profile.get("category", "General"),
-        "land_size": profile.get("land_size"),
-        "subsidy_percentage": scheme.get("subsidy_percentage"),
-        "max_subsidy_amount": scheme.get("formatted_max_amount"),
-        "submitted_at": submitted_at,
-        "status": "submitted",
-        "estimated_processing_days": 14,
-        "portal_url": scheme.get("application_url"),
-        "filled_fields": filled_fields
+    benefit_info = {
+        "scheme_name": scheme["name"],
+        "scheme_id": scheme_id,
+        "benefit_type": scheme["subsidy_type"]
     }
     
-    # Try to save to Database
-    db_save_success = False
-    try:
-        if supabase:
-            # First ensure user has a profile or get their ID
-            # In a real app we would query the user_id from auth, here we assume it's passed or default
-            user_id = profile.get("user_id", "default")
-            
-            # Prepare DB record
-            db_record = {
-                "reference_no": reference_no,
-                "user_id": user_id,
-                "scheme_name": scheme.get("scheme_name"),
-                "status": "submitted",
-                "application_details": application_details,
-                "created_at": submitted_at,
-                "updated_at": submitted_at
-            }
-            
-            # Insert into Supabase
-            result = supabase.table(APPLICATIONS_TABLE).insert(db_record).execute()
-            if result.data:
-                db_save_success = True
-                print(f"✅ Application saved to DB: {reference_no}")
-            else:
-                print(f"⚠️ Failed to save application to DB (no data returned)")
-    except Exception as e:
-        print(f"⚠️ Database error saving application: {e}")
-        # Continue with success response even if DB fails (graceful degradation)
+    # Calculate based on scheme type
+    if "PM-KISAN" in scheme_id:
+        benefit_info["annual_benefit"] = "₹6,000"
+        benefit_info["installments"] = "3 installments of ₹2,000 each"
+        
+    elif "PMFBY" in scheme_id and crop_value:
+        premium = crop_value * 0.02  # 2% premium
+        subsidy = premium * 0.9  # 90% subsidy
+        benefit_info["estimated_premium"] = f"₹{premium:.2f}"
+        benefit_info["subsidy_amount"] = f"₹{subsidy:.2f}"
+        benefit_info["your_contribution"] = f"₹{premium - subsidy:.2f}"
+        
+    elif "KCC" in scheme_id and land_size:
+        credit_limit = min(land_size * 50000, 300000)  # ₹50k per acre, max 3 lakh
+        benefit_info["credit_limit"] = f"₹{credit_limit:,.0f}"
+        benefit_info["interest_rate"] = "4% per annum"
+        
+    elif "SMAM" in scheme_id:
+        benefit_info["subsidy_rate"] = "40-50%"
+        benefit_info["max_subsidy"] = "₹1,00,000 per beneficiary"
+        if crop_value:
+            subsidy = crop_value * 0.45
+            benefit_info["estimated_subsidy"] = f"₹{subsidy:,.2f}"
+    
+    return benefit_info
+
+
+@tool
+def auto_fill_application(
+    scheme_id: str,
+    user_profile: Dict[str, Any]
+) -> Dict[str, Any]:
+    """
+    Auto-fill a scheme application form with user profile data.
+    
+    Args:
+        scheme_id: The ID of the scheme to apply for
+        user_profile: User's profile information (name, state, land_size, etc.)
+    
+    Returns:
+        Pre-filled application data
+    """
+    scheme = next((s for s in SCHEMES_DATABASE if s["id"] == scheme_id), None)
+    
+    if not scheme:
+        return {"error": "Scheme not found"}
+    
+    # Generate a reference number
+    timestamp = str(int(time.time()))[-6:]
+    rand = str(random.randint(100, 999))
+    reference_no = f"AGR-{timestamp}-{rand}"
+    
+    application = {
+        "reference_no": reference_no,
+        "scheme_id": scheme_id,
+        "scheme_name": scheme["name"],
+        "applicant_name": user_profile.get("name", ""),
+        "state": user_profile.get("state", ""),
+        "category": user_profile.get("category", ""),
+        "land_size": user_profile.get("land_size"),
+        "crop": user_profile.get("crop", ""),
+        "portal_url": scheme["portal_url"],
+        "status": "draft"
+    }
+    
+    # Calculate benefits if possible
+    benefits = calculate_benefits.invoke({
+        "scheme_id": scheme_id,
+        "land_size": user_profile.get("land_size"),
+        "crop_value": user_profile.get("crop_value")
+    })
+    
+    application["estimated_benefits"] = benefits
+    
+    return application
+
+
+@tool
+def submit_scheme_application(
+    application_data: Dict[str, Any]
+) -> Dict[str, str]:
+    """
+    Submit a scheme application to the backend system.
+    
+    Args:
+        application_data: Complete application form data
+    
+    Returns:
+        Submission status and reference number
+    """
+    # In production, this would POST to /api/schemes/apply
+    # For now, simulate submission
+    
+    reference_no = application_data.get("reference_no", f"AGR-{int(time.time())}")
     
     return {
-        "success": True,
         "status": "submitted",
         "reference_no": reference_no,
-        "application_details": application_details,
-        "db_saved": db_save_success,
-        "message": f"Application for {scheme.get('scheme_name')} submitted successfully!",
-        "next_steps": [
-            "Your application has been registered in the system",
-            f"Reference Number: {reference_no}",
-            "You will receive SMS confirmation shortly",
-            "Document verification will be scheduled within 7 days",
-            f"Track status at: {scheme.get('application_url')}"
-        ],
-        "helpline": "1800-180-1551 (Kisan Call Center)"
+        "message": f"Application submitted successfully. Reference: {reference_no}",
+        "next_steps": "Track your application status using the reference number. You will receive SMS updates."
     }
 
 
-# List of all tools for export
-ALL_TOOLS = [search_local_schemes, calculate_benefits, auto_fill_application, submit_scheme_application]
+# Export all tools for binding to LLM
+ALL_TOOLS = [
+    search_local_schemes,
+    calculate_benefits,
+    auto_fill_application,
+    submit_scheme_application
+]

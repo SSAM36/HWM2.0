@@ -1,23 +1,68 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Tilt } from 'react-tilt';
-import { FlaskConical, TrendingDown, Wallet } from 'lucide-react';
+import { FlaskConical, TrendingUp, Droplets, Leaf } from 'lucide-react';
 import { motion } from 'framer-motion';
 
-const NutrientCard = ({ label, value, unit, status, color }) => (
-    <div className="bg-white/40 dark:bg-white/5 rounded-xl p-3 border border-white/20 dark:border-white/5 flex flex-col items-center shadow-sm">
-        <span className="text-gray-500 dark:text-gray-400 text-xs font-bold uppercase">{label}</span>
-        <span className={`text-2xl font-bold my-1 text-${color}-600 dark:text-${color}-400`}>{value}</span>
-        <span className="text-xs text-gray-500">{unit}</span>
-        <div className={`mt-2 px-2 py-0.5 rounded text-[10px] font-bold ${status === 'Optimal' ? 'bg-organic-green/10 dark:bg-organic-green/20 text-organic-green-700 dark:text-organic-green' :
-            status === 'High' ? 'bg-red-500/10 dark:bg-red-500/20 text-red-600 dark:text-red-400' : 'bg-yellow-500/10 dark:bg-yellow-500/20 text-yellow-600 dark:text-yellow-400'
-            }`}>
-            {status}
+// Circular Gauge Component
+const CircularGauge = ({ value, max, label, unit, color, status }) => {
+    const percentage = Math.min((value / max) * 100, 100);
+    const circumference = 2 * Math.PI * 40;
+    const strokeDashoffset = circumference - (percentage / 100) * circumference;
+
+    const colorClasses = {
+        green: { stroke: 'stroke-organic-green', text: 'text-organic-green', bg: 'bg-organic-green/10' },
+        yellow: { stroke: 'stroke-amber-500', text: 'text-amber-500', bg: 'bg-amber-500/10' },
+        red: { stroke: 'stroke-red-500', text: 'text-red-500', bg: 'bg-red-500/10' },
+        blue: { stroke: 'stroke-blue-500', text: 'text-blue-500', bg: 'bg-blue-500/10' },
+        gray: { stroke: 'stroke-slate-400', text: 'text-slate-400', bg: 'bg-slate-100 dark:bg-slate-800' }
+    };
+
+    const colors = colorClasses[color] || colorClasses.gray;
+
+    return (
+        <div className="flex flex-col items-center">
+            <div className="relative w-[90px] h-[90px]">
+                <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+                    {/* Background circle */}
+                    <circle
+                        cx="50"
+                        cy="50"
+                        r="40"
+                        fill="none"
+                        strokeWidth="8"
+                        className="stroke-slate-200 dark:stroke-slate-700"
+                    />
+                    {/* Progress circle */}
+                    <circle
+                        cx="50"
+                        cy="50"
+                        r="40"
+                        fill="none"
+                        strokeWidth="8"
+                        strokeLinecap="round"
+                        className={`${colors.stroke} transition-all duration-500`}
+                        style={{
+                            strokeDasharray: circumference,
+                            strokeDashoffset: strokeDashoffset
+                        }}
+                    />
+                </svg>
+                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <span className={`text-lg font-bold ${colors.text}`}>{value}</span>
+                    <span className="text-[10px] text-slate-400">{unit}</span>
+                </div>
+            </div>
+            <p className="text-xs font-bold text-slate-700 dark:text-slate-300 mt-2">{label}</p>
+            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full mt-1 ${colors.bg} ${colors.text}`}>
+                {status}
+            </span>
         </div>
-    </div>
-);
+    );
+};
 
 const SoilHealthCards = ({ sensorData }) => {
-    // Default values (using 0 or '--') if data is missing
+    const { t } = useTranslation();
     const {
         nitrogen = 0,
         phosphorus = 0,
@@ -28,63 +73,76 @@ const SoilHealthCards = ({ sensorData }) => {
     } = sensorData || {};
 
     const lastTestText = last_updated
-        ? `Last update: ${new Date(last_updated).toLocaleTimeString()}`
-        : 'Waiting for sensor data...';
+        ? `${t('dashboard.lastUpdate') || 'Last Update'}: ${new Date(last_updated).toLocaleTimeString()}`
+        : t('dashboard.waitingForSensor') || 'Waiting for sensor...';
 
-    // Helper to determine status color/text
     const getStatus = (val, type) => {
-        if (!sensorData) return { status: 'Syncing...', color: 'gray' };
+        if (!sensorData) return { status: t('dashboard.syncing') || 'Syncing', color: 'gray' };
 
-        // Basic Logic (can be customized)
         if (type === 'ph') {
-            // pH 6.0-7.5 is usually optimal
-            if (val >= 6.0 && val <= 7.5) return { status: 'Optimal', color: 'green' };
-            return { status: 'Attention', color: 'yellow' };
+            if (val >= 6.0 && val <= 7.5) return { status: t('dashboard.optimal') || 'Optimal', color: 'green' };
+            return { status: t('dashboard.attention') || 'Attention', color: 'yellow' };
         }
 
-        // For N, P, K (Simplified logic)
-        // Removed strict 0 check to allow low values to show as Low/Critical instead of No Signal
-        if (val > 200) return { status: 'High', color: 'red' };
-        if (val < 50) return { status: 'Low', color: 'yellow' };
-        return { status: 'Optimal', color: 'green' };
+        if (val > 200) return { status: t('dashboard.high') || 'High', color: 'red' };
+        if (val < 50) return { status: t('dashboard.low') || 'Low', color: 'yellow' };
+        return { status: t('dashboard.optimal') || 'Optimal', color: 'green' };
     };
 
+    const getMoistureStatus = (val) => {
+        if (val < 20) return { status: t('dashboard.critical') || 'Critical', color: 'red' };
+        if (val < 35) return { status: t('dashboard.low') || 'Low', color: 'yellow' };
+        if (val > 80) return { status: t('dashboard.high') || 'High', color: 'blue' };
+        return { status: t('dashboard.optimal') || 'Optimal', color: 'green' };
+    };
+
+    const moistureStatus = getMoistureStatus(soil_moisture);
+
     return (
-        <Tilt className="w-full h-full" options={{ max: 10, scale: 1.02, speed: 400 }}>
-            <div className="glass-panel p-6 h-full flex flex-col">
-                <div className="flex items-center gap-3 mb-6">
-                    <div className="p-2 bg-amber-500/10 dark:bg-amber-500/20 text-amber-600 dark:text-amber-500 rounded-lg">
-                        <FlaskConical size={24} />
-                    </div>
-                    <div>
-                        <h3 className="text-lg font-bold text-dark-navy dark:text-white">Soil Nutrition</h3>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">{lastTestText}</p>
-                    </div>
-                </div>
-
-                <div className="grid grid-cols-4 gap-2 mb-6">
-                    <NutrientCard label="N" value={nitrogen} unit="kg/ha" {...getStatus(nitrogen, 'n')} />
-                    <NutrientCard label="P" value={phosphorus} unit="kg/ha" {...getStatus(phosphorus, 'p')} />
-                    <NutrientCard label="K" value={potassium} unit="kg/ha" {...getStatus(potassium, 'k')} />
-                    <NutrientCard label="pH" value={ph} unit="" {...getStatus(ph, 'ph')} />
-                </div>
-
-                {/* Moisture Level Insight */}
-                <div className="mt-auto bg-gradient-to-r from-blue-500/10 to-transparent dark:from-blue-500/20 p-4 rounded-xl border border-blue-500/20 dark:border-blue-500/30 flex items-center justify-between">
+        <Tilt className="w-full h-full" options={{ max: 8, scale: 1.01, speed: 300 }}>
+            <div className="gov-card h-full flex flex-col overflow-hidden">
+                {/* Header */}
+                <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                        <div className="bg-blue-500 p-2 rounded-full text-white dark:text-dark-navy shadow-md">
-                            <TrendingDown size={18} className="rotate-180" />
+                        <div className="p-2 bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-500 rounded-lg">
+                            <FlaskConical size={20} />
                         </div>
                         <div>
-                            <p className="text-xs text-gray-600 dark:text-gray-300 font-medium">Moisture Level</p>
-                            <p className="text-sm font-bold text-dark-navy dark:text-white">{soil_moisture}%</p>
+                            <h3 className="font-semibold text-slate-900 dark:text-white">{t('dashboard.soilNutrition') || 'Soil Nutrition'}</h3>
+                            <p className="text-xs text-slate-500">{lastTestText}</p>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-organic-green animate-pulse" />
+                        <span className="text-xs font-medium text-organic-green">LIVE</span>
+                    </div>
+                </div>
+
+                {/* Circular Gauges Grid */}
+                <div className="flex-1 p-4">
+                    <div className="grid grid-cols-4 gap-3">
+                        <CircularGauge label="Nitrogen" value={nitrogen} max={300} unit="kg/ha" {...getStatus(nitrogen, 'n')} />
+                        <CircularGauge label="Phosphorus" value={phosphorus} max={100} unit="kg/ha" {...getStatus(phosphorus, 'p')} />
+                        <CircularGauge label="Potassium" value={potassium} max={150} unit="kg/ha" {...getStatus(potassium, 'k')} />
+                        <CircularGauge label="pH Level" value={ph} max={14} unit="" {...getStatus(ph, 'ph')} />
+                    </div>
+                </div>
+
+                {/* Moisture Level Footer */}
+                <div className={`p-4 flex items-center justify-between ${moistureStatus.color === 'red' ? 'bg-red-50 dark:bg-red-900/10 border-t border-red-200 dark:border-red-900/30' : 'bg-blue-50 dark:bg-blue-900/10 border-t border-blue-200 dark:border-blue-900/30'}`}>
+                    <div className="flex items-center gap-3">
+                        <div className={`p-2 rounded-lg ${moistureStatus.color === 'red' ? 'bg-red-100 dark:bg-red-900/30 text-red-600' : 'bg-blue-100 dark:bg-blue-900/30 text-blue-600'}`}>
+                            <Droplets size={20} />
+                        </div>
+                        <div>
+                            <p className="text-xs font-medium text-slate-600 dark:text-slate-400">{t('dashboard.moistureLevel') || 'Soil Moisture'}</p>
+                            <p className="text-lg font-bold text-slate-900 dark:text-white">{soil_moisture}%</p>
                         </div>
                     </div>
                     <div className="text-right">
-                        <span className={`flex items-center text-xs font-bold gap-1 ${soil_moisture < 30 ? 'text-red-500' : 'text-blue-600 dark:text-blue-400'}`}>
-                            {soil_moisture < 30 ? 'Low Moisture' : 'Optimal'}
+                        <span className={`gov-badge ${moistureStatus.color === 'green' ? 'gov-badge-success' : moistureStatus.color === 'yellow' ? 'gov-badge-warning' : moistureStatus.color === 'red' ? 'gov-badge-danger' : 'gov-badge-info'}`}>
+                            {moistureStatus.status}
                         </span>
-                        <span className="text-[10px] text-gray-500 dark:text-gray-400">Live Sensor Data</span>
                     </div>
                 </div>
             </div>

@@ -1,4 +1,5 @@
 import { AVAILABLE_ROUTES } from './routeConfig';
+import i18n from '../i18n';
 
 // Common field synonyms to map speech (En, Hi, Mr) to input attributes
 const FIELD_SYNONYMS = {
@@ -42,13 +43,44 @@ export const processVoiceLocally = (transcript, currentPath) => {
     }
 
     // 1. Navigation Intent
-    for (const route of AVAILABLE_ROUTES) {
-        if (route.keywords.some(k => text.includes(k.toLowerCase()))) {
-            const pageName = route.path.split('/').pop().replace('-', ' ') || 'dashboard';
-            return {
-                targetPath: route.path,
-                feedback: `Opening ${pageName}. ${pageName} खोल रहे हैं।`
-            };
+    const voiceNavKeys = [
+        { key: 'dashboard', path: '/dashboard' },
+        { key: 'equipment', path: '/equipment' },
+        { key: 'mark_land', path: '/mark-my-land' },
+        { key: 'crop_health', path: '/crop-health' },
+        { key: 'insurance', path: '/insurance-claim' },
+        { key: 'auto_farm', path: '/autonomous-farm' },
+        { key: 'crop_recommend', path: '/crop-recommendation' },
+        { key: 'schemes', path: '/schemes-assistant' },
+        { key: 'inventory', path: '/inventory' },
+        { key: 'news', path: '/disaster-news' }
+    ];
+
+    for (const { key, path } of voiceNavKeys) {
+        const supportedLangs = ['en', 'hi', 'mr'];
+        for (const lng of supportedLangs) {
+             // Access nested key using dot notation if supported, or manually
+             // i18next V21+ might behave differently with getResource options
+             // Safe fallback: access store directly if possible or use t with specific lng
+             // valid: i18n.getResource(lng, 'translation', `voice_nav.${key}`)
+             
+             let keywordsStr = i18n.getResource(lng, 'translation', `voice_nav.${key}`);
+             
+             // If getResource returns undefined for nested keys (depends on version/config), try getting 'voice_nav' object
+             if (!keywordsStr) {
+                 const voiceNavObj = i18n.getResource(lng, 'translation', 'voice_nav');
+                 if (voiceNavObj) keywordsStr = voiceNavObj[key];
+             }
+
+             if (typeof keywordsStr === 'string') {
+                 const keywords = keywordsStr.split(',').map(k => k.trim().toLowerCase());
+                 if (keywords.some(k => text.includes(k))) {
+                      return {
+                          targetPath: path,
+                          feedback: `Opening ${key.replace('_', ' ')}. ${key} खोल रहे हैं।`
+                      };
+                 }
+             }
         }
     }
 
@@ -134,7 +166,26 @@ export const processVoiceLocally = (transcript, currentPath) => {
         };
     }
 
-    // 6. Fallback
+    // 6. Intelligent Fallback: Suggest navigation if fuzzy match is found
+    for (const { key } of voiceNavKeys) {
+        // Simple heuristic: if the key itself ('news', 'scheme') appears in the text
+        // or any of its main keywords appear
+        const englishKeywords = i18n.getResource('en', 'translation', `voice_nav.${key}`)?.split(',') || [];
+        const isFuzzyMatch = text.includes(key.replace('_', ' ')) || englishKeywords.some(k => text.includes(k.split(' ')[0])); // Check first word of keyword phrase
+
+        if (isFuzzyMatch) {
+            const hiCmd = i18n.getResource('hi', 'translation', `voice_nav.${key}`)?.split(',')[0] || '';
+            const mrCmd = i18n.getResource('mr', 'translation', `voice_nav.${key}`)?.split(',')[0] || '';
+            
+            return {
+                targetPath: null,
+                action: null,
+                feedback: `Did you mean ${key.replace('_', ' ')}? Say '${hiCmd}' or '${mrCmd}'.`
+            };
+        }
+    }
+
+    // 7. Generic Fallback
     return {
         targetPath: null,
         action: null,

@@ -265,26 +265,45 @@ void loop() {
   int   moisturePct  = rawToMoisture(rawValue);
   float ec_base      = rawToEC_base(rawValue);
   
-  // --- 3. Map moisture to EC in research table range (70-120 µS/cm) ---
-  // Physics: Moisture ↑ → Ion mobility ↑ → EC ↑
-  // 0% moisture → EC 70 (dry, low conductivity)
-  // 100% moisture → EC 120 (saturated, high conductivity)
-  float ec_uScm = 70.0 + (moisturePct / 100.0) * 50.0;
-  ec_uScm = constrain(ec_uScm, 70.0, 120.0);
+  // --- 3. Check if moisture is 0 - if so, return all zeros ---
+  float ec_uScm, N_kg, P_kg, K_kg, ph;
+  int N_int, P_int, K_int;
+  
+  if (moisturePct == 0) {
+    // No moisture = no valid readings
+    ec_uScm = 0.0;
+    N_kg = 0.0;
+    P_kg = 0.0;
+    K_kg = 0.0;
+    ph = 0.0;
+    N_int = 0;
+    P_int = 0;
+    K_int = 0;
+  } else {
+    // --- 4. Map moisture to EC in research table range (70-120 µS/cm) ---
+    // Physics: Moisture ↑ → Ion mobility ↑ → EC ↑
+    // 0% moisture → EC 70 (dry, low conductivity)
+    // 100% moisture → EC 120 (saturated, high conductivity)
+    ec_uScm = 70.0 + (moisturePct / 100.0) * 50.0;
+    ec_uScm = constrain(ec_uScm, 70.0, 120.0);
 
-  // --- 4. Interpolate NPK from research LUT using mapped EC ---
-  float N_kg  = interpolate(EC_LUT, N_KGHA, LUT_SIZE, ec_uScm);
-  float P_kg  = interpolate(EC_LUT, P_KGHA, LUT_SIZE, ec_uScm);
-  float K_kg  = interpolate(EC_LUT, K_KGHA, LUT_SIZE, ec_uScm);
-  float ph    = interpolate(EC_LUT, PH_LUT, LUT_SIZE, ec_uScm);
+    // --- 5. Interpolate NPK from research LUT using mapped EC ---
+    N_kg  = interpolate(EC_LUT, N_KGHA, LUT_SIZE, ec_uScm);
+    P_kg  = interpolate(EC_LUT, P_KGHA, LUT_SIZE, ec_uScm);
+    K_kg  = interpolate(EC_LUT, K_KGHA, LUT_SIZE, ec_uScm);
+    ph    = interpolate(EC_LUT, PH_LUT, LUT_SIZE, ec_uScm);
 
-  int N_int = (int)round(N_kg);
-  int P_int = (int)round(P_kg);
-  int K_int = (int)round(K_kg);
+    N_int = (int)round(N_kg);
+    P_int = (int)round(P_kg);
+    K_int = (int)round(K_kg);
+  }
 
-  // --- 5. Serial Report (clean output) ---
+  // --- 6. Serial Report (clean output) ---
   Serial.println("\n====== SOIL REPORT ======");
   Serial.printf("  Moisture : %d %%\n", moisturePct);
+  if (moisturePct == 0) {
+    Serial.println("  [NO SENSOR CONTACT - All readings zero]");
+  }
   Serial.printf("  EC       : %.1f uS/cm\n", ec_uScm);
   Serial.printf("  pH       : %.2f\n", ph);
   Serial.printf("  N        : %.1f kg/ha\n", N_kg);
@@ -292,21 +311,24 @@ void loop() {
   Serial.printf("  K        : %.1f kg/ha\n", K_kg);
   Serial.println("=========================");
 
-  // --- 6. POST to Backend ---
+  // --- 7. POST to Backend ---
   if (WiFi.status() == WL_CONNECTED) {
     HTTPClient http;
     http.begin(serverUrl);
     http.addHeader("Content-Type", "application/json");
 
     // Build JSON matching backend SensorData model exactly
+    // When moisture is 0, temperature is also 0
+    float soilTemp = (moisturePct == 0) ? 0.0 : estimateSoilTemp(moisturePct);
+    
     String payload = "{";
     payload += "\"soil_moisture\":" + String(moisturePct) + ",";
-    payload += "\"nitrogen\":"     + String(N_int) + ",";
-    payload += "\"phosphorus\":"   + String(P_int) + ",";
-    payload += "\"potassium\":"    + String(K_int) + ",";
-    payload += "\"conductivity\":" + String(ec_uScm, 2) + ",";
-    payload += "\"ph\":"           + String(ph, 2) + ",";
-    payload += "\"soil_temperature\":" + String(estimateSoilTemp(moisturePct), 1);
+    payload += "\"nitrogen\":" + String(N_int) + ",";
+    payload += "\"phosphorus\":" + String(P_int) + ",";
+    payload += "\"potassium\":" + String(K_int) + ",";
+    payload += "\"ph\":" + String(ph, 2) + ",";
+    payload += "\"soil_temperature\":" + String(soilTemp, 1) + ",";
+    payload += "\"conductivity\":" + String(ec_uScm, 2);
     payload += "}";
 
     int httpCode = http.POST(payload);

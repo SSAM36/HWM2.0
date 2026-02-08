@@ -108,27 +108,80 @@ const SchemesPage = () => {
         return `${prefix}-${timestamp}-${random}`;
     };
 
-    const submitApplication = () => {
+    const submitApplication = async () => {
         setApplicationStatus('pending');
 
-        setTimeout(() => {
-            // Create application entry
-            const newApplication = {
-                schemeName: selectedScheme.scheme_name,
-                schemeId: selectedScheme.scheme_name.replace(/\s+/g, '-').toLowerCase(),
-                applicantName: profile?.name || 'Farmer',
-                state: profile?.state || 'Not specified',
-                category: profile?.category || 'General',
-                subsidyAmount: selectedScheme.formatted_max_amount || 'TBD',
-                subsidyPercentage: selectedScheme.subsidy_percentage,
-                appliedDate: new Date().toLocaleDateString('en-IN'),
-                status: 'pending',
-                referenceNo: generateReferenceNo()
+        try {
+            // Get user info from localStorage or auth context
+            const user = JSON.parse(localStorage.getItem('user') || '{}');
+            const userId = user.user_id || user.id || 'guest-' + Date.now();
+
+            // Prepare application data
+            const applicationData = {
+                user_id: userId,
+                farmer_name: profile?.name || user.name || 'Unknown',
+                farmer_phone: profile?.phone || user.phone || '',
+                scheme_name: selectedScheme.scheme_name,
+                application_details: {
+                    scheme_details: {
+                        description: selectedScheme.description,
+                        category: selectedScheme.category,
+                        state: selectedScheme.state,
+                        subsidy_percentage: selectedScheme.subsidy_percentage,
+                        max_amount: selectedScheme.formatted_max_amount,
+                        application_url: selectedScheme.application_url
+                    },
+                    applicant_details: {
+                        name: profile?.name || 'Unknown',
+                        email: user.email || profile?.email || '',
+                        phone: profile?.phone || '',
+                        state: profile?.state || '',
+                        category: profile?.category || '',
+                        land_size: profile?.land_size || ''
+                    },
+                    submitted_at: new Date().toISOString(),
+                    submitted_from: 'Schemes Page'
+                }
             };
 
-            setApplications(prev => [newApplication, ...prev]);
-            setApplicationStatus('submitted');
-        }, 2000);
+            // Call API to save application
+            console.log('📤 Submitting application:', applicationData);
+            const response = await fetch(getApiUrl('api/feature2/scheme-applications'), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(applicationData)
+            });
+
+            const result = await response.json();
+            console.log('📥 API Response:', result);
+
+            if (result.status === 'success' && result.reference_no) {
+                // Create local application entry for immediate UI update
+                const newApplication = {
+                    schemeName: selectedScheme.scheme_name,
+                    schemeId: selectedScheme.scheme_name.replace(/\s+/g, '-').toLowerCase(),
+                    applicantName: profile?.name || 'Farmer',
+                    state: profile?.state || 'Not specified',
+                    category: profile?.category || 'General',
+                    subsidyAmount: selectedScheme.formatted_max_amount || 'TBD',
+                    subsidyPercentage: selectedScheme.subsidy_percentage,
+                    appliedDate: new Date().toLocaleDateString('en-IN'),
+                    status: 'submitted',
+                    referenceNo: result.reference_no
+                };
+
+                setApplications(prev => [newApplication, ...prev]);
+                setApplicationStatus('submitted');
+            } else {
+                throw new Error(result.message || 'Failed to submit application');
+            }
+        } catch (error) {
+            console.error('❌ Application submission error:', error);
+            setApplicationStatus(null);
+            alert('Failed to submit application. Please try again. Error: ' + error.message);
+        }
     };
 
     const clearApplications = () => {

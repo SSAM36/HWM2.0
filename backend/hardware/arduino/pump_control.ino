@@ -1,54 +1,65 @@
-#include <ESP8266WiFi.h>
-#include <ESP8266WebServer.h>
+#include <WiFi.h>
+#include <WebServer.h>
 
-// WiFi Credentials
-const char* ssid = "VPPCOE&VA-WIFI";
-const char* password = "";
+const char* ssid = "DMS";
+const char* password = "dMS@2026";
 
-// Pump Control Pin
-#define PUMP_PIN 5  // GPIO5 (D1 on NodeMCU)
+const int motorPin = 5;   // GPIO 5 on ESP32
+bool motorState = false;
 
-ESP8266WebServer server(80);
-bool pumpStatus = false;
+WebServer server(80);
 
 void setup() {
   Serial.begin(115200);
-  pinMode(PUMP_PIN, OUTPUT);
-  digitalWrite(PUMP_PIN, LOW);
-  
-  // Connect to WiFi
+  pinMode(motorPin, OUTPUT);
+  digitalWrite(motorPin, LOW);
+
   WiFi.begin(ssid, password);
   Serial.print("Connecting to WiFi");
+
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
   }
-  Serial.println("\n✅ WiFi Connected!");
-  Serial.print("IP: ");
+
+  Serial.println("\nConnected!");
+  Serial.print("IP Address: ");
   Serial.println(WiFi.localIP());
-  
-  // API Endpoints
-  server.on("/pump/on", HTTP_GET, []() {
-    digitalWrite(PUMP_PIN, HIGH);
-    pumpStatus = true;
-    Serial.println("💧 Pump ON");
-    server.send(200, "application/json", "{\"status\":\"on\",\"message\":\"Pump started\"}");
+
+  server.on("/motor/on", HTTP_GET, []() {
+    motorState = true;
+    digitalWrite(motorPin, HIGH);
+    Serial.println("Motor ON command received");
+    Serial.print("GPIO5 Voltage: ");
+    Serial.print(digitalRead(motorPin) ? "HIGH (3.3V)" : "LOW (0V)");
+    Serial.println();
+    server.send(200, "application/json", "{\"status\":\"on\"}");
   });
-  
-  server.on("/pump/off", HTTP_GET, []() {
-    digitalWrite(PUMP_PIN, LOW);
-    pumpStatus = false;
-    Serial.println("🛑 Pump OFF");
-    server.send(200, "application/json", "{\"status\":\"off\",\"message\":\"Pump stopped\"}");
+
+  server.on("/motor/off", HTTP_GET, []() {
+    motorState = false;
+    digitalWrite(motorPin, LOW);
+    Serial.println("Motor OFF command received");
+    Serial.print("GPIO5 Voltage: ");
+    Serial.print(digitalRead(motorPin) ? "HIGH (3.3V)" : "LOW (0V)");
+    Serial.println();
+    server.send(200, "application/json", "{\"status\":\"off\"}");
   });
-  
-  server.on("/pump/status", HTTP_GET, []() {
-    String status = pumpStatus ? "on" : "off";
-    server.send(200, "application/json", "{\"status\":\"" + status + "\"}");
+
+  server.on("/motor/toggle", HTTP_GET, []() {
+    motorState = !motorState;
+    digitalWrite(motorPin, motorState ? HIGH : LOW);
+    server.send(200, "application/json",
+      "{\"status\":\"" + String(motorState ? "on" : "off") + "\"}");
   });
-  
+
+  server.on("/status", HTTP_GET, []() {
+    server.send(200, "application/json",
+      "{\"motor\":\"" + String(motorState ? "on" : "off") + "\"}");
+  });
+
   server.begin();
-  Serial.println("🚀 Server started");
+  Serial.println("HTTP server started");
 }
 
 void loop() {

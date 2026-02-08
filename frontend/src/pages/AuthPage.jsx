@@ -151,20 +151,28 @@ const AuthPage = () => {
                     </div>
 
                     {mode === 'signup' && (
-                        <div className="space-y-2">
-                            <label className="text-xs font-bold text-slate-500 uppercase ml-1">{t('i_am_a')}</label>
-                            <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-3">
+                            <label className="text-xs font-bold text-slate-500 uppercase ml-1 block text-center mb-2">{t('i_am_a') || "Select Role"}</label>
+
+                            <div className="grid grid-cols-3 gap-2 bg-slate-900/50 p-1 rounded-xl border border-slate-700">
                                 <button
                                     type="button"
                                     onClick={() => setFormData({ ...formData, role: 'farmer' })}
-                                    className={`py-2 rounded-lg text-sm font-bold border transition-all ${formData.role === 'farmer' ? 'bg-blue-600 border-blue-500 text-white' : 'bg-slate-900/50 border-slate-700 text-slate-400'}`}
+                                    className={`py-2 rounded-lg text-xs font-bold transition-all ${formData.role === 'farmer' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-500/20' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
                                 >
                                     {t('farmer')}
                                 </button>
                                 <button
                                     type="button"
                                     onClick={() => setFormData({ ...formData, role: 'user' })}
-                                    className={`py-2 rounded-lg text-sm font-bold border transition-all ${formData.role === 'user' ? 'bg-blue-600 border-blue-500 text-white' : 'bg-slate-900/50 border-slate-700 text-slate-400'}`}
+                                    className={`py-2 rounded-lg text-xs font-bold transition-all ${formData.role === 'user' ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
+                                >
+                                    User
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setFormData({ ...formData, role: 'admin' })}
+                                    className={`py-2 rounded-lg text-xs font-bold transition-all ${formData.role === 'admin' ? 'bg-purple-600 text-white shadow-lg shadow-purple-500/20' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
                                 >
                                     {t('normal_user')}
                                 </button>

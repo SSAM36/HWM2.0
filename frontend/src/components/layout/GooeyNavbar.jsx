@@ -1,22 +1,42 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Menu, X, Sun, Moon, Globe, LogIn, LogOut, User } from 'lucide-react';
+import { Menu, X, Sun, Moon, Globe, LogIn, LogOut, User, Home, LayoutDashboard, CloudRain, Tractor, MapPin, Sprout, FileText, Package, ShoppingCart, ChevronRight } from 'lucide-react';
 import { useThemeStore, useLanguageStore } from '../../store/themeStore';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { supportedLanguages } from '../../i18n';
+import { supportedLanguages } from '../../constants/languages';
+import { motion, AnimatePresence } from 'framer-motion';
 
-const NavItem = ({ to, label, isActive, onClick }) => (
-    <Link
-        to={to}
-        onClick={onClick}
-        className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${isActive
-            ? "bg-organic-green dark:bg-organic-green text-white font-bold"
-            : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
-            }`}
-    >
-        {label}
-    </Link>
-);
+const NavItem = ({ to, label, icon: Icon, isActive, onClick, isMobile = false }) => {
+    if (isMobile) {
+        return (
+            <Link
+                to={to}
+                onClick={onClick}
+                className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ${isActive
+                    ? "bg-organic-green/10 text-organic-green font-semibold border-l-4 border-organic-green -ml-px"
+                    : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                    }`}
+            >
+                {Icon && <Icon size={20} className={isActive ? "text-organic-green" : "text-slate-400"} />}
+                <span className="flex-1">{label}</span>
+                <ChevronRight size={16} className="text-slate-300 dark:text-slate-600" />
+            </Link>
+        );
+    }
+
+    return (
+        <Link
+            to={to}
+            onClick={onClick}
+            className={`px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${isActive
+                ? "bg-organic-green text-white shadow-sm"
+                : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                }`}
+        >
+            {label}
+        </Link>
+    );
+};
 
 const Navbar = () => {
     const { t } = useTranslation();
@@ -36,146 +56,296 @@ const Navbar = () => {
         }
     }, [location]);
 
+    // Close drawer on route change
+    useEffect(() => {
+        setIsOpen(false);
+    }, [location.pathname]);
+
+    // Prevent body scroll when drawer is open
+    useEffect(() => {
+        if (isOpen) {
+            document.body.style.overflow = 'hidden';
+        } else {
+            document.body.style.overflow = '';
+        }
+        return () => {
+            document.body.style.overflow = '';
+        };
+    }, [isOpen]);
+
     const handleLogout = () => {
         localStorage.removeItem('user');
         setUser(null);
+        setIsOpen(false);
         navigate('/');
     };
 
     const NAV_Links = [
-        { to: '/dashboard', label: t('dashboard') },
-        { to: '/autonomous-farm', label: t('auto_farm') },
-        { to: '/mark-my-land', label: t('land_map') },
-        { to: '/crop-recommendation', label: t('crop_ai') },
-        { to: '/equipment', label: t('equipment') },
-        { to: '/schemes-assistant', label: t('schemes') },
-        { to: '/inventory', label: t('inventory') },
+        { to: '/dashboard', label: t('dashboard_nav'), icon: LayoutDashboard },
+        { to: '/disaster-news', label: t('disaster_news'), icon: CloudRain },
+        { to: '/autonomous-farm', label: t('auto_farm'), icon: Tractor },
+        { to: '/mark-my-land', label: t('land_map'), icon: MapPin },
+        { to: '/crop-recommendation', label: t('crop_ai'), icon: Sprout },
+        { to: '/equipment', label: t('equipment'), icon: Tractor },
+        { to: '/schemes-assistant', label: t('schemes'), icon: FileText },
+        { to: '/inventory', label: t('inventory'), icon: Package },
+        { to: '/marketplace', label: t('marketplace') || 'Marketplace', icon: ShoppingCart },
     ];
 
     return (
-        <nav className="sticky top-0 z-50 w-full bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shadow-sm transition-colors duration-300">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div className="flex justify-between h-16">
-                    {/* Brand */}
-                    <div className="flex-shrink-0 flex items-center">
-                        <Link to="/" className="flex items-center gap-2">
-                            <img src="/logo.png" alt="Annadata Saathi" className="w-12 h-12 object-contain" />
-                            <div className="flex flex-col">
-                                <span className="font-bold text-lg leading-tight text-slate-900 dark:text-white">Annadata Saathi</span>
-                                <span className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">Govt. of India Initiative</span>
-                            </div>
-                        </Link>
-                    </div>
-
-                    {/* Desktop Menu */}
-                    <div className="hidden lg:flex items-center space-x-1">
-                        {NAV_Links.slice(0, 5).map(link => (
-                            <NavItem
-                                key={link.to}
-                                to={link.to}
-                                label={link.label}
-                                isActive={location.pathname === link.to}
-                            />
-                        ))}
-                    </div>
-
-                    {/* Right Side Actions */}
-                    <div className="hidden md:flex items-center gap-3">
-                        {/* Language Selector */}
-                        <button
-                            onClick={() => {
-                                const langs = ['en', 'hi', 'mr'];
-                                const next = langs[(langs.indexOf(language) + 1) % langs.length];
-                                setLanguage(next);
-                            }}
-                            className="flex items-center gap-1 px-3 py-1.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-bold border border-slate-200 dark:border-slate-700 hover:border-slate-300 transition-colors"
-                        >
-                            <Globe size={14} /> {supportedLanguages.find(l => l.code === language)?.nativeName || language.toUpperCase()}
-                        </button>
-
-                        {/* Theme Toggle */}
-                        <button
-                            onClick={toggleTheme}
-                            className="p-2 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 border border-transparent hover:border-slate-200 dark:hover:border-slate-700 transition-all"
-                            aria-label="Toggle Theme"
-                        >
-                            {theme === 'dark' ? <Moon size={18} /> : <Sun size={18} />}
-                        </button>
-
-                        {/* User Auth */}
-                        {user ? (
-                            <div className="flex items-center gap-3 pl-3 border-l border-slate-200 dark:border-slate-700">
-                                <div className="flex flex-col items-end hidden xl:flex">
-                                    <span className="text-sm font-bold text-slate-900 dark:text-white">{user.full_name}</span>
-                                    <span className="text-[10px] text-slate-500 uppercase">Farmer ID: {user.id?.substring(0, 6) || '---'}</span>
-                                </div>
-                                <button
-                                    onClick={handleLogout}
-                                    title="Logout"
-                                    className="p-2 bg-red-50 dark:bg-red-900/10 text-red-600 dark:text-red-400 rounded-md hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
-                                >
-                                    <LogOut size={18} />
-                                </button>
-                            </div>
-                        ) : (
-                            <Link to="/auth" className="ml-2 px-5 py-2 bg-gov-blue hover:bg-blue-700 text-white text-sm font-bold rounded-md shadow-sm transition-colors flex items-center gap-2">
-                                <LogIn size={16} /> {t('login')}
-                            </Link>
-                        )}
-                    </div>
-
-                    {/* Mobile Menu Button */}
-                    <div className="flex items-center lg:hidden">
-                        <button
-                            onClick={() => setIsOpen(!isOpen)}
-                            className="p-2 rounded-md text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
-                        >
-                            {isOpen ? <X size={24} /> : <Menu size={24} />}
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            {/* Mobile Sidebar/Menu */}
-            {isOpen && (
-                <div className="lg:hidden absolute top-16 left-0 w-full bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shadow-xl py-4 flex flex-col gap-2 px-4">
-                    {NAV_Links.map(link => (
-                        <NavItem
-                            key={link.to}
-                            to={link.to}
-                            label={link.label}
-                            isActive={location.pathname === link.to}
-                            onClick={() => setIsOpen(false)}
-                        />
-                    ))}
-                    <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between">
-                        <div className="flex gap-4">
+        <>
+            <nav className="sticky top-0 z-50 w-full bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 shadow-sm transition-all duration-300 print:hidden">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                    <div className="flex justify-between h-16">
+                        {/* Brand Section */}
+                        <div className="flex items-center gap-4">
+                            {/* Mobile Menu Button */}
                             <button
-                                onClick={toggleTheme}
-                                className="flex items-center gap-2 text-sm font-medium text-slate-600 dark:text-slate-300"
+                                onClick={() => setIsOpen(true)}
+                                className="lg:hidden p-2 -ml-2 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                                aria-label="Open menu"
                             >
-                                {theme === 'dark' ? <Moon size={16} /> : <Sun size={16} />} Theme
+                                <Menu size={24} />
                             </button>
+
+                            <Link to="/" className="flex items-center gap-3 group">
+                                {/* Logo Image */}
+                                <div className="relative w-10 h-10 rounded-xl overflow-hidden shadow-md group-hover:shadow-lg transition-shadow">
+                                    <img
+                                        src="/logo.png"
+                                        alt="Annadata Saathi"
+                                        className="w-full h-full object-cover"
+                                    />
+                                </div>
+                                <div className="flex flex-col">
+                                    <span className="text-lg font-black tracking-tight text-slate-900 dark:text-white leading-none">
+                                        ANNADATA<span className="text-organic-green font-extrabold">SAATHI</span>
+                                    </span>
+                                    <span className="text-[9px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-widest">
+                                        Digital Agri Ecosystem
+                                    </span>
+                                </div>
+                            </Link>
+                        </div>
+
+                        {/* Desktop Navigation */}
+                        <div className="hidden lg:flex items-center space-x-1">
+                            {NAV_Links.slice(0, 7).map(link => (
+                                <NavItem
+                                    key={link.to}
+                                    to={link.to}
+                                    label={link.label}
+                                    isActive={location.pathname === link.to}
+                                />
+                            ))}
+                            {/* More dropdown for remaining items */}
+                            <div className="relative group">
+                                <button className="px-3 py-2 text-sm font-medium rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                                    More
+                                </button>
+                                <div className="absolute top-full right-0 mt-1 w-48 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 py-2">
+                                    {NAV_Links.slice(7).map(link => (
+                                        <Link
+                                            key={link.to}
+                                            to={link.to}
+                                            className="flex items-center gap-2 px-4 py-2 text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
+                                        >
+                                            <link.icon size={16} />
+                                            {link.label}
+                                        </Link>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Right Side Actions */}
+                        <div className="flex items-center gap-2">
+                            {/* Language Selector - Desktop Only */}
                             <button
                                 onClick={() => {
                                     const langs = ['en', 'hi', 'mr'];
                                     const next = langs[(langs.indexOf(language) + 1) % langs.length];
                                     setLanguage(next);
                                 }}
-                                className="flex items-center gap-2 text-sm font-medium text-slate-600 dark:text-slate-300"
+                                className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-semibold border border-slate-200 dark:border-slate-700 hover:border-organic-green dark:hover:border-organic-green transition-colors"
                             >
-                                <Globe size={16} /> {supportedLanguages.find(l => l.code === language)?.nativeName || language.toUpperCase()}
+                                <Globe size={14} />
+                                <span>{supportedLanguages.find(l => l.code === language)?.nativeName || language.toUpperCase()}</span>
                             </button>
+
+                            {/* Theme Toggle */}
+                            <button
+                                onClick={toggleTheme}
+                                className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 transition-colors"
+                                aria-label="Toggle Theme"
+                            >
+                                {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
+                            </button>
+
+                            {/* User Auth - Desktop */}
+                            <div className="hidden md:flex items-center">
+                                {user ? (
+                                    <div className="flex items-center gap-2 pl-2 border-l border-slate-200 dark:border-slate-700 ml-2">
+                                        <Link
+                                            to="/profile"
+                                            title="My Profile"
+                                            className="p-2 bg-organic-green/10 text-organic-green rounded-lg hover:bg-organic-green/20 transition-colors"
+                                        >
+                                            <User size={18} />
+                                        </Link>
+                                        <button
+                                            onClick={handleLogout}
+                                            title="Logout"
+                                            className="p-2 bg-red-50 dark:bg-red-900/10 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/20 transition-colors"
+                                        >
+                                            <LogOut size={18} />
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <Link
+                                        to="/auth"
+                                        className="ml-2 px-4 py-2 bg-organic-green hover:bg-organic-green-800 text-white text-sm font-semibold rounded-lg shadow-sm transition-all flex items-center gap-2"
+                                    >
+                                        <LogIn size={16} />
+                                        <span className="hidden lg:inline">{t('login')}</span>
+                                    </Link>
+                                )}
+                            </div>
                         </div>
-                        {user ? (
-                            <button onClick={handleLogout} className="text-red-600 font-bold text-sm">Logout</button>
-                        ) : (
-                            <Link to="/auth" className="text-gov-blue font-bold text-sm">Login</Link>
-                        )}
                     </div>
                 </div>
-            )}
-        </nav>
+            </nav>
+
+            {/* Mobile Drawer Overlay */}
+            <AnimatePresence>
+                {isOpen && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="mobile-drawer-overlay lg:hidden"
+                        onClick={() => setIsOpen(false)}
+                    />
+                )}
+            </AnimatePresence>
+
+            {/* Mobile Drawer */}
+            <AnimatePresence>
+                {isOpen && (
+                    <motion.div
+                        initial={{ x: '-100%' }}
+                        animate={{ x: 0 }}
+                        exit={{ x: '-100%' }}
+                        transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+                        className="fixed top-0 left-0 h-full w-80 max-w-[85vw] bg-white dark:bg-slate-900 shadow-2xl z-[70] lg:hidden"
+                    >
+                        {/* Drawer Header */}
+                        <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-800">
+                            <Link to="/" className="flex items-center gap-3" onClick={() => setIsOpen(false)}>
+                                <div className="w-10 h-10 rounded-xl overflow-hidden shadow-md">
+                                    <img src="/logo.png" alt="Logo" className="w-full h-full object-cover" />
+                                </div>
+                                <div className="flex flex-col">
+                                    <span className="text-lg font-bold text-slate-900 dark:text-white">
+                                        ANNADATA<span className="text-organic-green">SAATHI</span>
+                                    </span>
+                                </div>
+                            </Link>
+                            <button
+                                onClick={() => setIsOpen(false)}
+                                className="p-2 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                            >
+                                <X size={24} />
+                            </button>
+                        </div>
+
+                        {/* User Info (if logged in) */}
+                        {user && (
+                            <div className="p-4 bg-organic-green/5 dark:bg-organic-green/10 border-b border-slate-200 dark:border-slate-800">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-12 h-12 rounded-full bg-organic-green/20 flex items-center justify-center">
+                                        <User size={24} className="text-organic-green" />
+                                    </div>
+                                    <div>
+                                        <p className="font-semibold text-slate-900 dark:text-white">{user.full_name}</p>
+                                        <p className="text-xs text-slate-500">ID: {user.id?.substring(0, 8)}...</p>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Navigation Links */}
+                        <div className="flex-1 overflow-y-auto p-4">
+                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3 px-4">Navigation</p>
+                            <div className="space-y-1">
+                                <NavItem
+                                    to="/"
+                                    label="Home"
+                                    icon={Home}
+                                    isActive={location.pathname === '/'}
+                                    onClick={() => setIsOpen(false)}
+                                    isMobile={true}
+                                />
+                                {NAV_Links.map(link => (
+                                    <NavItem
+                                        key={link.to}
+                                        to={link.to}
+                                        label={link.label}
+                                        icon={link.icon}
+                                        isActive={location.pathname === link.to}
+                                        onClick={() => setIsOpen(false)}
+                                        isMobile={true}
+                                    />
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Drawer Footer */}
+                        <div className="p-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
+                            <div className="flex items-center justify-between mb-4">
+                                <button
+                                    onClick={toggleTheme}
+                                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-sm font-medium text-slate-700 dark:text-slate-200"
+                                >
+                                    {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+                                    {theme === 'dark' ? 'Light' : 'Dark'}
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        const langs = ['en', 'hi', 'mr'];
+                                        const next = langs[(langs.indexOf(language) + 1) % langs.length];
+                                        setLanguage(next);
+                                    }}
+                                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-sm font-medium text-slate-700 dark:text-slate-200"
+                                >
+                                    <Globe size={16} />
+                                    {supportedLanguages.find(l => l.code === language)?.nativeName || language.toUpperCase()}
+                                </button>
+                            </div>
+
+                            {user ? (
+                                <button
+                                    onClick={handleLogout}
+                                    className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-600 font-semibold hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
+                                >
+                                    <LogOut size={18} />
+                                    Logout
+                                </button>
+                            ) : (
+                                <Link
+                                    to="/auth"
+                                    onClick={() => setIsOpen(false)}
+                                    className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-organic-green text-white font-semibold hover:bg-organic-green-800 transition-colors"
+                                >
+                                    <LogIn size={18} />
+                                    Login / Register
+                                </Link>
+                            )}
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </>
     );
 };
 

@@ -243,9 +243,10 @@ def create_application(state: AgentState) -> Dict:
     messages = state["messages"]
     last_message = messages[-1].content.lower() if messages else ""
     profile = state.get("user_profile", {})
-    schemes = state.get("found_schemes", [])
+    schemes = state.get("found_schemes", []) or []  # Ensure it's a list, not None
     
     print(f"[DEBUG] create_application: profile={profile}, schemes_count={len(schemes)}")
+    
     
     # Try to identify which scheme they want to apply for from the message
     scheme_name = None

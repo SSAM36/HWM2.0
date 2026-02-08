@@ -9,11 +9,16 @@ router = APIRouter(prefix="/api/auth", tags=["Authentication"])
 @router.post("/signup", response_model=AuthResponse)
 async def signup(request: SignupRequest, req: Request):
     try:
+        # Map 'user' role to 'farmer' for database compatibility
+        db_role = request.role
+        if request.role == 'user':
+            db_role = 'farmer'
+
         user_data = auth_service.register_user(
             full_name=request.full_name,
             email=request.email,
             password=request.password,
-            role=request.role
+            role=db_role
         )
 
         # Create session

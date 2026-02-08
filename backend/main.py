@@ -1,8 +1,12 @@
+import os
+# Suppress TensorFlow logs before any imports that might use TF
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
+
 from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
-import os
 import base64
 from typing import Optional
 
@@ -19,6 +23,7 @@ from feature5.equipment_analyzer import (
     get_maintenance_schedules
 )
 from feature5.subsidy_service import get_all_subsidies, calculate_subsidy_amount, get_available_states
+from feature5.router import router as feature5_router
 from feature1.router import router as feature1_router
 from feature2.router import router as feature2_router
 from feature3.api import router as feature3_router
@@ -377,6 +382,7 @@ def health_check_api():
 
 # Include routers
 app.include_router(feature1_router) # Careful with duplicates, keeping one
+app.include_router(feature5_router, prefix="/api/schemes", tags=["Schemes"])
 app.include_router(feature2_router)
 app.include_router(feature3_router, prefix="/api/feature3")
 from feature4.router import feature4_router as feature4_agent_router
@@ -416,13 +422,6 @@ async def get_products():
         "total": len(products),
         "source": "LetGo3.0_Backend"
     }
-
-from feature4_drl.router import router as feature4_router
-app.include_router(feature4_router)
-
-# Feature 6: Inventory & Blockchain
-from feature6_blockchain.router import router as blockchain_router
-app.include_router(blockchain_router, prefix="/api/feature6", tags=["Feature 6: Blockchain"])
 
 # Face Auth Router
 from face_auth.router import router as face_router

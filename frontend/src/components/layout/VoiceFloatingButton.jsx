@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Mic, MicOff, Loader2, Navigation } from 'lucide-react';
+import { Mic, MicOff, Loader2, Sparkles, X, Volume2 } from 'lucide-react';
 import { useVoiceStore, useLanguageStore } from '../../store/themeStore';
 import { processVoiceLocally } from '../../utils/localVoiceProcessor';
 
@@ -27,21 +27,17 @@ const VoiceFloatingButton = () => {
     const recognitionRef = useRef(null);
     const silenceTimerRef = useRef(null);
 
-
-
     const executeAction = (action) => {
         if (!action) return;
 
         try {
             if (action.type === 'fill') {
-                // 1. Try direct selector or common attributes
                 const s = action.selector;
                 let element = document.querySelector(s) ||
                     document.querySelector(`input[name*="${s}" i]`) ||
                     document.querySelector(`input[id*="${s}" i]`) ||
                     document.querySelector(`input[placeholder*="${s}" i]`);
 
-                // 2. If not found, search by labels
                 if (!element) {
                     const labels = Array.from(document.querySelectorAll('label'));
                     const targetLabel = labels.find(l =>
@@ -87,7 +83,6 @@ const VoiceFloatingButton = () => {
                     target.click();
                 }
             } else if (action.type === 'chat') {
-                // Find chat input (e.g., on Schemes page)
                 const chatInput = document.querySelector('input[placeholder*="Ask about subsidies"]') ||
                     document.querySelector('input[placeholder*="Ask me anything"]');
                 if (chatInput) {
@@ -95,7 +90,6 @@ const VoiceFloatingButton = () => {
                     chatInput.dispatchEvent(new Event('input', { bubbles: true }));
                     chatInput.dispatchEvent(new Event('change', { bubbles: true }));
 
-                    // Click the send button (usually the sibling or nearby)
                     const sendBtn = chatInput.parentElement.querySelector('button');
                     if (sendBtn) sendBtn.click();
                 }
@@ -142,14 +136,10 @@ const VoiceFloatingButton = () => {
                     stopListening();
                     setIsProcessing(true);
 
-                    // Process locally using the browser's webkit transcript
                     const result = processVoiceLocally(finalTranscript, location.pathname);
-
-                    // Clean feedback for display and speech (removes ** markdown)
                     const cleanFeedback = result.feedback.replace(/\*\*/g, '');
                     setFeedback(cleanFeedback);
 
-                    // Speak the feedback back to user
                     const utterance = new SpeechSynthesisUtterance(cleanFeedback);
                     utterance.lang = language === 'hi' ? 'hi-IN' : (language === 'mr' ? 'mr-IN' : 'en-IN');
                     window.speechSynthesis.speak(utterance);
@@ -202,71 +192,118 @@ const VoiceFloatingButton = () => {
     }
 
     return (
-        <div className="fixed bottom-8 right-8 z-50 flex flex-col items-end gap-2">
-
+        <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3">
+            {/* Feedback Panel */}
             <AnimatePresence>
                 {(isListening || isProcessing || feedback) && (
                     <motion.div
-                        initial={{ opacity: 0, y: 10, scale: 0.9 }}
+                        initial={{ opacity: 0, y: 20, scale: 0.9 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: 10, scale: 0.9 }}
-                        className="bg-dark-navy/90 backdrop-blur-md border border-organic-green/30 p-4 rounded-xl shadow-2xl mb-2 max-w-xs text-right"
+                        exit={{ opacity: 0, y: 20, scale: 0.9 }}
+                        className="relative bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-xl p-4 max-w-xs"
                     >
+                        {/* Close Button */}
+                        <button
+                            onClick={() => { setFeedback(''); stopListening(); }}
+                            className="absolute top-2 right-2 p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+                        >
+                            <X size={14} />
+                        </button>
+
                         {/* Status Header */}
-                        <div className="flex items-center justify-end gap-2 mb-1">
-                            <span className="text-xs uppercase tracking-wider text-organic-green font-bold">
+                        <div className="flex items-center gap-2 mb-2">
+                            <div className={`w-2 h-2 rounded-full ${isProcessing ? 'bg-amber-500 animate-pulse' : isListening ? 'bg-green-500 animate-pulse' : 'bg-organic-green'}`} />
+                            <span className="text-xs uppercase tracking-wider font-bold text-organic-green">
                                 {isProcessing ? t('ai_processing') : isListening ? t('voice_listening') : t('voice_assistant')}
                             </span>
                             {isProcessing && <Loader2 className="animate-spin w-3 h-3 text-organic-green" />}
                         </div>
 
                         {/* Transcript / Feedback */}
-                        <p className="text-white text-sm font-medium leading-relaxed">
+                        <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed pr-4">
                             {feedback || transcript || "..."}
                         </p>
+
+                        {/* Speak Button */}
+                        {feedback && !isListening && !isProcessing && (
+                            <button
+                                onClick={() => {
+                                    const utterance = new SpeechSynthesisUtterance(feedback);
+                                    utterance.lang = language === 'hi' ? 'hi-IN' : (language === 'mr' ? 'mr-IN' : 'en-IN');
+                                    window.speechSynthesis.speak(utterance);
+                                }}
+                                className="mt-3 flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-organic-green transition-colors"
+                            >
+                                <Volume2 size={14} /> Listen Again
+                            </button>
+                        )}
                     </motion.div>
                 )}
             </AnimatePresence>
 
+            {/* Voice Button */}
             <div className="relative">
-                {/* Pulse Effect */}
+                {/* Pulse Ring Effect */}
                 <AnimatePresence>
                     {isListening && (
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.5 }}
-                            animate={{ opacity: [0.2, 0.5, 0.2], scale: [1.5, 2, 1.5] }}
-                            exit={{ opacity: 0, scale: 0.5 }}
-                            className="absolute inset-0 bg-neon-green rounded-full opacity-20 blur-xl pointer-events-none"
-                            transition={{
-                                duration: 1.5,
-                                ease: "easeInOut",
-                                repeat: Infinity,
-                                repeatType: "loop"
-                            }}
-                        />
+                        <>
+                            <motion.div
+                                initial={{ opacity: 0, scale: 0.8 }}
+                                animate={{ opacity: [0.4, 0, 0.4], scale: [1, 1.5, 1] }}
+                                exit={{ opacity: 0 }}
+                                transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
+                                className="absolute inset-0 bg-organic-green rounded-full"
+                            />
+                            <motion.div
+                                initial={{ opacity: 0, scale: 0.8 }}
+                                animate={{ opacity: [0.2, 0, 0.2], scale: [1, 2, 1] }}
+                                exit={{ opacity: 0 }}
+                                transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut", delay: 0.2 }}
+                                className="absolute inset-0 bg-organic-green rounded-full"
+                            />
+                        </>
                     )}
                 </AnimatePresence>
 
+                {/* Main Button */}
                 <motion.button
-                    whileHover={{ scale: 1.1 }}
+                    whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     onClick={handleToggle}
                     disabled={isProcessing}
-                    className={`relative w-16 h-16 rounded-full flex items-center justify-center shadow-lg transition-all border-2 z-10 ${isListening
-                        ? 'bg-organic-green border-neon-green text-dark-navy shadow-[0_0_20px_rgba(34,197,94,0.5)]'
-                        : isProcessing
-                            ? 'bg-dark-navy border-organic-green text-organic-green cursor-wait'
-                            : 'bg-dark-navy border-white/10 text-white hover:border-organic-green'
+                    className={`relative w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition-all duration-300 z-10 
+                        ${isListening
+                            ? 'bg-gradient-to-br from-organic-green-500 to-organic-green-600 text-white shadow-green-glow border-2 border-organic-green-300'
+                            : isProcessing
+                                ? 'bg-gradient-to-br from-slate-700 to-slate-800 text-organic-green border-2 border-organic-green cursor-wait'
+                                : 'bg-gradient-to-br from-organic-green-600 to-organic-green-700 text-white border-2 border-organic-green-400 hover:shadow-green-glow'
                         }`}
                 >
                     {isProcessing ? (
-                        <Navigation className="animate-pulse" size={28} />
+                        <Sparkles className="animate-pulse" size={24} />
                     ) : isListening ? (
-                        <Mic className="animate-pulse" size={28} />
+                        <motion.div
+                            animate={{ scale: [1, 1.1, 1] }}
+                            transition={{ duration: 0.5, repeat: Infinity }}
+                        >
+                            <Mic size={24} />
+                        </motion.div>
                     ) : (
-                        <Mic size={28} />
+                        <Mic size={24} />
                     )}
                 </motion.button>
+
+                {/* Tooltip */}
+                {!isListening && !isProcessing && !feedback && (
+                    <motion.div
+                        initial={{ opacity: 0, x: 10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        className="absolute right-full mr-3 top-1/2 -translate-y-1/2 bg-slate-900 dark:bg-slate-700 text-white text-xs font-medium px-3 py-1.5 rounded-lg whitespace-nowrap shadow-lg"
+                    >
+                        Voice Assistant
+                        <div className="absolute top-1/2 -translate-y-1/2 -right-1 w-2 h-2 bg-slate-900 dark:bg-slate-700 rotate-45" />
+                    </motion.div>
+                )}
             </div>
         </div>
     );

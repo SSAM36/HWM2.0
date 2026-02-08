@@ -231,7 +231,25 @@ async def trigger_fetch_news(request: FetchNewsRequest):
         fetch_api(final_query),
         fetch_api(broad_query)
     )
-    articles = results[0] + results[1]
+    
+    # Deduplicate articles based on URL and Title
+    seen_urls = set()
+    seen_titles = set()
+    unique_articles = []
+    
+    # Combine results and filter
+    raw_articles = results[0] + results[1]
+    
+    for article in raw_articles:
+        url = article.get('url')
+        title = article.get('title')
+        
+        if url and url not in seen_urls and title and title not in seen_titles:
+            seen_urls.add(url)
+            seen_titles.add(title)
+            unique_articles.append(article)
+            
+    articles = unique_articles
 
     if not articles:
         return {"status": "error", "message": "Failed to fetch from GNews"}
@@ -242,14 +260,14 @@ async def trigger_fetch_news(request: FetchNewsRequest):
     # Get coordinates for the search location
     search_lat, search_lon = await get_coordinates(location)
     
-    # Process each article (could be parallelized but loop is fine for processing logic)
-    for article in articles:
+    # Prepare all geolocation tasks and process in parallel to reduce wait time
+    async def process_single_article(article):
         title = article.get('title')
         desc = article.get('description')
         url = article.get('url')
         
         if not title or not url:
-            continue
+            return None
             
         img_url = article.get('image')
         source = article.get('source', {}).get('name')
@@ -267,7 +285,6 @@ async def trigger_fetch_news(request: FetchNewsRequest):
             if any(t in text_content for t in ['farmer', 'agriculture', 'rural', 'village', 'kisan']):
                 category = "Agriculture"
             else:
-                # Still include it if it came from our targeted search, just categorize as General
                 category = "General News"
 
         if not img_url or img_url == "null":
@@ -279,17 +296,17 @@ async def trigger_fetch_news(request: FetchNewsRequest):
         if extracted_location:
             article_lat, article_lon = await get_coordinates(extracted_location)
         
+        distance_km = None
+        if None not in (search_lat, search_lon, article_lat, article_lon):
+            distance_km = round(calculate_distance(search_lat, search_lon, article_lat, article_lon), 1)
+            
         priority_score = get_geolocation_priority(
             search_lat, search_lon, 
             article_lat, article_lon,
             extracted_location or location
         )
         
-        distance_km = None
-        if None not in (search_lat, search_lon, article_lat, article_lon):
-            distance_km = round(calculate_distance(search_lat, search_lon, article_lat, article_lon), 1)
-        
-        processed_articles.append({
+        return {
             'title': title,
             'description': desc,
             'image_url': img_url,
@@ -298,11 +315,17 @@ async def trigger_fetch_news(request: FetchNewsRequest):
             'published_at': pub_date,
             'category': category,
             'location_name': extracted_location or location,
-            'article_lat': article_lat,
-            'article_lon': article_lon,
+            'priority_score': priority_score,
             'distance_km': distance_km,
-            'geolocation_priority': priority_score
-        })
+            'article_lat': article_lat,
+            'article_lon': article_lon
+        }
+
+    # Execute all processing in parallel
+    processed_data = await asyncio.gather(*(process_single_article(a) for a in articles))
+    
+    # Filter out Nones
+    processed_articles = [p for p in processed_data if p is not None]
 
     # Store in memory
     NEWS_STORAGE = processed_articles
@@ -327,6 +350,16 @@ async def get_news(
 ):
     """Retrieves stored news with geolocation-based prioritization."""
     global NEWS_STORAGE
+    
+    # Auto-fetch if storage is empty
+    if not NEWS_STORAGE:
+        print("Storage empty, triggering initial fetch...")
+        try:
+             # Use a default fetch request
+             await trigger_fetch_news(FetchNewsRequest(location=location or "India"))
+        except Exception as e:
+            print(f"Auto-fetch failed: {e}")
+
     results = list(NEWS_STORAGE)
     
     start_index = (page - 1) * limit

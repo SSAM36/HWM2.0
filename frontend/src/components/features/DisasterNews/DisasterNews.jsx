@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { newsService } from '../../../services/newsService';
+import { useLanguageStore } from '../../../store/themeStore';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Newspaper, MapPin, RefreshCw, Search,
@@ -11,6 +12,7 @@ import {
  * FarmerNews component - refactored to use lucide-react and standard function declaration
  */
 export default function FarmerNews() {
+  const { language } = useLanguageStore();
   const [articles, setArticles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -83,7 +85,8 @@ export default function FarmerNews() {
         limit: 12,
         location: searchQuery,
         latitude: location.lat,
-        longitude: location.lon
+        longitude: location.lon,
+        lang: language
       });
       if (isRefresh) {
         setArticles(data.articles);
@@ -103,7 +106,7 @@ export default function FarmerNews() {
   const handleFreshFetch = async () => {
     setRefreshing(true);
     try {
-      await newsService.fetchFreshNews(searchQuery || 'India');
+      await newsService.fetchFreshNews(searchQuery || 'India', language);
       await loadNews(true);
     } catch (err) {
       console.error(err);
@@ -114,7 +117,7 @@ export default function FarmerNews() {
 
   useEffect(() => {
     loadNews(true);
-  }, [location.lat, location.lon]);
+  }, [location.lat, location.lon, language]);
 
   return (
     <div className="min-h-screen pt-24 pb-12 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
@@ -163,9 +166,9 @@ export default function FarmerNews() {
             {articles.map((article, idx) => (
               <motion.div
                 key={article.id || idx}
-                initial={{ opacity: 0, y: 20 }}
+                initial={{ opacity: 0, y: 30 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: idx * 0.05 }}
+                transition={{ duration: 0.5, delay: idx * 0.15, ease: "easeOut" }}
                 className="bg-white dark:bg-gray-800 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-100 dark:border-gray-700 flex flex-col h-full"
               >
                 <div className="relative h-48 overflow-hidden">

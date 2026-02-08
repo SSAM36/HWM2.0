@@ -62,11 +62,10 @@ async def get_dashboard_stats():
 @router.get("/recent-claims")
 async def get_recent_claims():
     """
-    Fetch recently submitted schemes/claims.
+    Fetch recently submitted schemes/claims with detailed info.
     """
     try:
-        # Join with farmer_profiles if possible, or just fetch applications
-        # Supabase join syntax: select('*, farmer_profiles(*)')
+        # Fetch applications
         response = supabase.table("scheme_applications")\
             .select("*, farmer_profiles(name, district)")\
             .order("created_at", desc=True)\
@@ -75,18 +74,23 @@ async def get_recent_claims():
         
         claims = []
         for item in response.data:
+            details = item.get("application_details") or {}
+            
+            # Determine Farmer Name: Joined Profile > Details JSON > User ID > Default
             farmer_name = "Unknown Farmer"
-            if item.get("farmer_profiles"):
-                farmer_name = item.get("farmer_profiles").get("name", "Unknown")
-            elif item.get("user_id"):
-                 # Fallback if the join didn't work directly or user_id is just local ID
-                 farmer_name = f"User {item.get('user_id')[:8]}"
-
+            if item.get("farmer_profiles") and item.get("farmer_profiles").get("name"):
+                farmer_name = item.get("farmer_profiles").get("name")
+            elif details.get("applicant_name"):
+                 farmer_name = details.get("applicant_name")
+            
+            # Determine Amount
+            amount = details.get("subsidy_amount", "₹--")
+            
             claims.append({
                 "id": item.get("id"),
                 "farmer": farmer_name,
                 "type": item.get("scheme_name", "General Scheme"),
-                "amount": "₹--", # Amount often in application_details jsonb
+                "amount": amount,
                 "date": item.get("created_at", "").split("T")[0],
                 "status": item.get("status", "Pending")
             })
@@ -100,19 +104,66 @@ async def get_recent_claims():
 @router.get("/dashboard-chart")
 async def get_dashboard_chart_data():
     """
-    Get graph data for claims velocity.
+    Get dynamic graph data for claims velocity aggregated by date.
     """
-    # In a real app, we would aggregate by date in SQL.
-    # For now, we will mock the trend based on recent data or return static structure if DB is empty
-    return [
-       {"name": "Mon", "claims": 4, "processed": 2},
-       {"name": "Tue", "claims": 3, "processed": 1},
-       {"name": "Wed", "claims": 2, "processed": 5},
-       {"name": "Thu", "claims": 12, "processed": 8},
-       {"name": "Fri", "claims": 18, "processed": 12},
-       {"name": "Sat", "claims": 10, "processed": 9},
-       {"name": "Sun", "claims": 8, "processed": 6},
-    ]
+    try:
+        from datetime import datetime, timedelta
+        from collections import defaultdict
+
+        # Calculate date range (last 7 days)
+        today = datetime.now().date()
+        date_labels = []
+        for i in range(6, -1, -1):
+            date_labels.append((today - timedelta(days=i)).isoformat())
+
+        # Fetch claims created in last 7 days
+        start_date = date_labels[0]
+        
+        # Claims (Submitted)
+        claims_res = supabase.table("scheme_applications")\
+            .select("created_at")\
+            .gte("created_at", start_date)\
+            .execute()
+            
+        # Processed (Approved/Rejected)
+        processed_res = supabase.table("scheme_applications")\
+            .select("updated_at")\
+            .gte("updated_at", start_date)\
+            .in_("status", ["approved", "rejected", "completed"])\
+            .execute()
+
+        # Aggregate counts
+        claims_count = defaultdict(int)
+        processed_count = defaultdict(int)
+
+        for item in claims_res.data:
+            date_str = item["created_at"].split("T")[0]
+            claims_count[date_str] += 1
+            
+        for item in processed_res.data:
+            date_str = item["updated_at"].split("T")[0]
+            processed_count[date_str] += 1
+
+        # Format for chart
+        chart_data = []
+        for date_str in date_labels:
+            # Format label as "Mon", "Tue" etc.
+            dt = datetime.fromisoformat(date_str)
+            day_name = dt.strftime("%a") 
+            
+            chart_data.append({
+                "name": day_name,
+                "fullDate": date_str,
+                "claims": claims_count[date_str],
+                "processed": processed_count[date_str]
+            })
+
+        return chart_data
+
+    except Exception as e:
+        print(f"Error generating chart data: {e}")
+        # Fallback to empty structure
+        return []
 
 @router.get("/risk-heatmap")
 async def get_risk_heatmap():

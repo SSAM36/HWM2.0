@@ -1,9 +1,11 @@
 import React from 'react';
 import { Tilt } from 'react-tilt';
-import { Droplets, Sprout, AlertTriangle, Check, X } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
+import { Droplets, Sprout, AlertTriangle, Check, X, Power, Zap, Info } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const TodaysActionCard = ({ sensorData }) => {
+    const { t } = useTranslation();
     const { soil_moisture = 0, nitrogen = 0, phosphorus = 0, potassium = 0 } = sensorData || {};
     const [pumpStatus, setPumpStatus] = React.useState(false);
     const [fertilizerStatus, setFertilizerStatus] = React.useState(false);
@@ -17,22 +19,17 @@ const TodaysActionCard = ({ sensorData }) => {
     const handleIrrigate = async () => {
         if (soil_moisture >= 30) {
             setActionMessage("Moisture is sufficient (>30%). Pump not needed.");
+            setTimeout(() => setActionMessage(""), 3000);
             return;
         }
 
         setLoading(true);
         try {
-            // Attempt to call the endpoint
-            // We use no-cors to avoid CORS errors when hitting a local IP from a served frontend
             fetch('https://172.16.30.185/motor/on', { method: 'GET', mode: 'no-cors' }).catch(e => console.warn(e));
-
-            // OPTIMISTIC UPDATE: User says pump works, so we assume success
             setPumpStatus(true);
             setActionMessage("Pump Started Successfully!");
-
         } catch (error) {
             console.error("Error triggering pump:", error);
-            // Fallback for visual confirmation
             setPumpStatus(true);
             setActionMessage("Pump Started (Optimistic)");
         } finally {
@@ -45,7 +42,6 @@ const TodaysActionCard = ({ sensorData }) => {
         setLoading(true);
         try {
             fetch('https://172.16.30.185/motor/on', { method: 'GET', mode: 'no-cors' }).catch(e => console.warn(e));
-
             setPumpStatus(false);
             setActionMessage("Pump Stopped.");
         } catch (error) {
@@ -58,13 +54,10 @@ const TodaysActionCard = ({ sensorData }) => {
         }
     };
 
-    // Fertilizer Handlers (Assuming similar endpoints or placeholders)
     const handleStartFertilizer = async () => {
         setLoading(true);
         try {
-            // Using same IP structure, assuming /fertilizer/on or similar
             fetch('https://172.16.30.185/motor/on', { method: 'GET', mode: 'no-cors' }).catch(e => console.warn(e));
-
             setFertilizerStatus(true);
             setActionMessage("Fertigation Started!");
         } catch (error) {
@@ -80,7 +73,6 @@ const TodaysActionCard = ({ sensorData }) => {
         setLoading(true);
         try {
             fetch('https://172.16.30.185/motor/on', { method: 'GET', mode: 'no-cors' }).catch(e => console.warn(e));
-
             setFertilizerStatus(false);
             setActionMessage("Fertigation Stopped.");
         } catch (error) {
@@ -93,121 +85,194 @@ const TodaysActionCard = ({ sensorData }) => {
     };
 
     const isFertilizerNeeded = nitrogen < 200 || phosphorus < 30 || potassium < 35;
+    const isIrrigationNeeded = soil_moisture < 30;
 
-    // Helper to determine status text
     const getStatusText = () => {
-        if (pumpStatus) return "IRRIGATING";
-        if (fertilizerStatus) return "FERTILIZING";
-        return "IDLE";
+        if (pumpStatus) return t('dashboard.statusIrrigating') || 'Irrigating';
+        if (fertilizerStatus) return t('dashboard.statusFertilizing') || 'Fertilizing';
+        return t('dashboard.statusIdle') || 'Idle';
+    };
+
+    const getStatusColor = () => {
+        if (pumpStatus) return 'bg-blue-500';
+        if (fertilizerStatus) return 'bg-amber-500';
+        return 'bg-slate-400';
     };
 
     return (
-        <Tilt className="w-full h-full" options={{ max: 10, scale: 1.01, speed: 400 }}>
-            <div className="glass-panel-heavy p-8 border-l-4 border-organic-green relative overflow-hidden h-full flex flex-col justify-between group hover:border-organic-green-400 transition-colors">
+        <Tilt className="w-full h-full" options={{ max: 8, scale: 1.01, speed: 300 }}>
+            <div className="gov-card-elevated h-full flex flex-col border-l-4 border-l-organic-green overflow-hidden">
 
-                <div className="flex justify-between items-start">
-                    <div>
-                        <h2 className="text-3xl font-bold mb-1 text-dark-navy dark:text-white">Today's Focus</h2>
-                        <p className="text-gray-500 dark:text-gray-400">Live Recommendations based on Sensor Data</p>
-                    </div>
-                    <div className="flex items-center gap-2 px-4 py-2 bg-blue-500/10 border border-blue-500/20 rounded-full">
-                        <span className={`w-3 h-3 rounded-full ${pumpStatus || fertilizerStatus ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`}></span>
-                        <span className="text-blue-700 dark:text-blue-400 font-bold text-sm">
-                            STATUS: {getStatusText()}
-                        </span>
+                {/* Header */}
+                <div className="p-5 border-b border-slate-100 dark:border-slate-800">
+                    <div className="flex justify-between items-start">
+                        <div>
+                            <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-1">
+                                {t('dashboard.todaysFocus') || "Today's Focus"}
+                            </h2>
+                            <p className="text-sm text-slate-500 dark:text-slate-400">
+                                {t('dashboard.liveRecommendations') || 'AI-powered recommendations'}
+                            </p>
+                        </div>
+                        <div className="flex items-center gap-2 px-3 py-2 bg-slate-100 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
+                            <span className={`w-2.5 h-2.5 rounded-full ${getStatusColor()} ${pumpStatus || fertilizerStatus ? 'animate-pulse' : ''}`} />
+                            <span className="text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide">
+                                {getStatusText()}
+                            </span>
+                        </div>
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-                    {/* Action 1: Irrigation */}
-                    <div className="bg-white/40 dark:bg-white/5 rounded-2xl p-6 border border-white/20 dark:border-white/5 hover:bg-white/50 dark:hover:bg-white/10 transition-colors shadow-sm">
-                        <div className="flex items-center gap-3 mb-4">
-                            <div className="p-3 bg-blue-500/10 dark:bg-blue-500/20 rounded-xl text-blue-600 dark:text-blue-400">
-                                <Droplets size={24} />
+                {/* Action Cards */}
+                <div className="flex-1 p-5">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 h-full">
+
+                        {/* Irrigation Card */}
+                        <div className={`rounded-xl p-5 border-2 transition-all flex flex-col ${isIrrigationNeeded ? 'bg-blue-50 dark:bg-blue-900/10 border-blue-200 dark:border-blue-800' : 'bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700'}`}>
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className={`p-3 rounded-xl ${isIrrigationNeeded ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600' : 'bg-slate-200 dark:bg-slate-700 text-slate-500'}`}>
+                                    <Droplets size={24} />
+                                </div>
+                                <div className="flex-1">
+                                    <h3 className="font-bold text-slate-900 dark:text-white">{t('dashboard.irrigate') || 'Irrigation'}</h3>
+                                    <p className="text-xs text-slate-500">
+                                        {t('dashboard.moistureLevel') || 'Moisture'}: <span className={`font-bold ${soil_moisture < 30 ? 'text-red-600' : 'text-organic-green'}`}>{soil_moisture}%</span>
+                                    </p>
+                                </div>
+                                {isIrrigationNeeded && (
+                                    <span className="gov-badge-danger text-[10px]">
+                                        <AlertTriangle size={10} /> Action Needed
+                                    </span>
+                                )}
                             </div>
-                            <div>
-                                <h3 className="text-xl font-bold text-dark-navy dark:text-white">Irrigate?</h3>
-                                <p className="text-sm text-gray-500 dark:text-gray-400">Moisture: {soil_moisture}% {soil_moisture < 30 ? '(Low)' : '(Optimal)'}</p>
+
+                            {/* Progress Bar */}
+                            <div className="mb-4">
+                                <div className="gov-progress h-3">
+                                    <div
+                                        className={`gov-progress-bar ${soil_moisture < 30 ? 'bg-red-500' : soil_moisture < 50 ? 'bg-amber-500' : 'bg-blue-500'}`}
+                                        style={{ width: `${Math.min(soil_moisture, 100)}%` }}
+                                    />
+                                </div>
+                                <div className="flex justify-between text-[10px] text-slate-400 mt-1">
+                                    <span>0%</span>
+                                    <span>Optimal: 30-60%</span>
+                                    <span>100%</span>
+                                </div>
                             </div>
-                        </div>
-                        <div className="flex gap-3 flex-col">
-                            <div className="flex gap-3 w-full">
+
+                            {/* Action Buttons */}
+                            <div className="flex gap-2 mt-auto">
                                 <button
                                     onClick={handleIrrigate}
-                                    disabled={loading}
-                                    className={`flex-1 py-3 bg-organic-green hover:bg-organic-green-600 text-dark-navy font-extrabold rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-organic-green/20 ${loading ? 'opacity-50' : ''}`}
+                                    disabled={loading || pumpStatus}
+                                    className={`flex-1 py-3 rounded-lg font-bold flex items-center justify-center gap-2 transition-all text-sm ${pumpStatus ? 'bg-blue-600 text-white' : 'bg-organic-green hover:bg-organic-green-800 text-white shadow-sm'} ${loading ? 'opacity-50' : ''}`}
                                 >
-                                    <Check size={20} /> START
+                                    <Power size={16} />
+                                    {pumpStatus ? 'Running...' : t('dashboard.start') || 'Start'}
                                 </button>
                                 <button
                                     onClick={handleStopPump}
-                                    disabled={loading}
-                                    className="px-6 py-3 bg-red-500/10 hover:bg-red-500/20 text-red-600 dark:text-red-400 font-bold rounded-xl flex items-center justify-center gap-2 transition-all border border-red-500/20"
+                                    disabled={loading || !pumpStatus}
+                                    className="px-4 py-3 bg-white dark:bg-slate-700 border border-red-200 dark:border-red-900 text-red-600 dark:text-red-400 font-bold rounded-lg flex items-center justify-center gap-2 transition-all text-sm hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-30"
                                 >
-                                    <X size={20} /> STOP
+                                    <X size={16} />
                                 </button>
                             </div>
-                            {actionMessage && !fertilizerStatus && pumpStatus && <p className="text-xs font-bold text-center mt-1 text-organic-green">Active: Irrigation Pump ON</p>}
                         </div>
-                    </div>
 
-                    {/* Action 2: Fertilizer */}
-                    <div className="bg-white/40 dark:bg-white/5 rounded-2xl p-6 border border-white/20 dark:border-white/5 hover:bg-white/50 dark:hover:bg-white/10 transition-colors shadow-sm">
-                        <div className="flex items-center gap-3 mb-4">
-                            <div className="p-3 bg-yellow-500/10 dark:bg-yellow-500/20 rounded-xl text-yellow-600 dark:text-yellow-500">
-                                <Sprout size={24} />
-                            </div>
-                            <div>
-                                <h3 className="text-xl font-bold text-dark-navy dark:text-white">Fertilize?</h3>
-                                <p className="text-sm text-gray-500 dark:text-gray-400">
-                                    {isFertilizerNeeded ? 'NPK Levels are LOW' : 'Nutrients levels are sufficient'}
-                                </p>
-                            </div>
-                        </div>
-                        <div className="flex gap-3">
-                            {isFertilizerNeeded ? (
-                                <>
-                                    <button
-                                        onClick={handleStartFertilizer}
-                                        disabled={loading}
-                                        className="flex-1 py-3 bg-yellow-500 hover:bg-yellow-600 text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-yellow-500/20"
-                                    >
-                                        <Check size={20} /> START
-                                    </button>
-                                    <button
-                                        onClick={handleStopFertilizer}
-                                        disabled={loading}
-                                        className="px-6 py-3 bg-red-500/10 hover:bg-red-500/20 text-red-600 dark:text-red-400 font-bold rounded-xl flex items-center justify-center gap-2 transition-all border border-red-500/20"
-                                    >
-                                        <X size={20} /> STOP
-                                    </button>
-                                </>
-                            ) : (
-                                <div className="w-full py-3 bg-green-500/10 text-green-600 font-bold rounded-xl text-center border border-green-500/20">
-                                    ✓ No Action Needed
+                        {/* Fertilizer Card */}
+                        <div className={`rounded-xl p-5 border-2 transition-all flex flex-col ${isFertilizerNeeded ? 'bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-800' : 'bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700'}`}>
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className={`p-3 rounded-xl ${isFertilizerNeeded ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-600' : 'bg-slate-200 dark:bg-slate-700 text-slate-500'}`}>
+                                    <Sprout size={24} />
                                 </div>
-                            )}
+                                <div className="flex-1">
+                                    <h3 className="font-bold text-slate-900 dark:text-white">{t('dashboard.fertilize') || 'Fertigation'}</h3>
+                                    <p className="text-xs text-slate-500">
+                                        {isFertilizerNeeded ? t('dashboard.npkLevelsLow') || 'NPK levels low' : t('dashboard.nutrientsOptimal') || 'Nutrients optimal'}
+                                    </p>
+                                </div>
+                                {isFertilizerNeeded && (
+                                    <span className="gov-badge-warning text-[10px]">
+                                        <Zap size={10} /> Recommended
+                                    </span>
+                                )}
+                            </div>
+
+                            {/* NPK Status Mini */}
+                            <div className="flex gap-2 mb-4">
+                                <div className="flex-1 text-center p-2 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
+                                    <span className="block text-xs text-slate-400">N</span>
+                                    <span className={`text-sm font-bold ${nitrogen < 200 ? 'text-amber-600' : 'text-organic-green'}`}>{nitrogen}</span>
+                                </div>
+                                <div className="flex-1 text-center p-2 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
+                                    <span className="block text-xs text-slate-400">P</span>
+                                    <span className={`text-sm font-bold ${phosphorus < 30 ? 'text-amber-600' : 'text-organic-green'}`}>{phosphorus}</span>
+                                </div>
+                                <div className="flex-1 text-center p-2 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
+                                    <span className="block text-xs text-slate-400">K</span>
+                                    <span className={`text-sm font-bold ${potassium < 35 ? 'text-amber-600' : 'text-organic-green'}`}>{potassium}</span>
+                                </div>
+                            </div>
+
+                            {/* Action Buttons */}
+                            <div className="flex gap-2 mt-auto">
+                                {isFertilizerNeeded ? (
+                                    <>
+                                        <button
+                                            onClick={handleStartFertilizer}
+                                            disabled={loading || fertilizerStatus}
+                                            className={`flex-1 py-3 rounded-lg font-bold flex items-center justify-center gap-2 transition-all text-sm ${fertilizerStatus ? 'bg-amber-600 text-white' : 'bg-amber-500 hover:bg-amber-600 text-white shadow-sm'} ${loading ? 'opacity-50' : ''}`}
+                                        >
+                                            <Power size={16} />
+                                            {fertilizerStatus ? 'Running...' : t('dashboard.start') || 'Start'}
+                                        </button>
+                                        <button
+                                            onClick={handleStopFertilizer}
+                                            disabled={loading || !fertilizerStatus}
+                                            className="px-4 py-3 bg-white dark:bg-slate-700 border border-red-200 dark:border-red-900 text-red-600 dark:text-red-400 font-bold rounded-lg flex items-center justify-center gap-2 transition-all text-sm hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-30"
+                                        >
+                                            <X size={16} />
+                                        </button>
+                                    </>
+                                ) : (
+                                    <div className="w-full py-3 bg-organic-green/10 border border-organic-green/20 text-organic-green font-bold rounded-lg text-center text-sm flex items-center justify-center gap-2">
+                                        <Check size={16} />
+                                        {t('dashboard.noActionNeeded') || 'No Action Needed'}
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                {/* Shared Action Message */}
-                {actionMessage && (
-                    <div className="absolute bottom-4 left-0 right-0 text-center pointer-events-none">
-                        <span className="bg-white dark:bg-gray-800 px-4 py-2 rounded-full shadow-lg text-sm font-bold text-organic-green border border-organic-green/20 animate-bounce">
-                            {actionMessage}
-                        </span>
-                    </div>
-                )}
+                {/* Action Message Toast */}
+                <AnimatePresence>
+                    {actionMessage && (
+                        <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: 20 }}
+                            className="absolute bottom-4 left-1/2 -translate-x-1/2"
+                        >
+                            <div className="px-4 py-2 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-lg shadow-lg text-sm font-medium flex items-center gap-2">
+                                <Check size={16} className="text-organic-green" />
+                                {actionMessage}
+                            </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
 
-                <div className="mt-6 pt-6 border-t border-white/10 dark:border-white/5 flex items-center justify-between">
-                    <p className="text-sm text-gray-500 dark:text-gray-400 italic">
+                {/* Footer Advisory */}
+                <div className="px-5 py-3 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-100 dark:border-slate-800 flex items-center gap-2">
+                    <Info size={14} className="text-slate-400" />
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
                         {soil_moisture < 30
-                            ? "CRITICAL: Moisture levels critically low. Immediate irrigation recommended."
-                            : "System is running optimally. No critical alerts."}
+                            ? t('dashboard.criticalMoisture') || '⚠️ Critical: Irrigation recommended immediately'
+                            : t('dashboard.systemOptimal') || '✅ All systems operating within optimal parameters'}
                     </p>
                 </div>
-
             </div>
         </Tilt>
     );
