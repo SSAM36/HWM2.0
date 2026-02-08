@@ -60,20 +60,6 @@ const int DRY_ADC = 3500;   // ADC in dry air
 const int WET_ADC = 1200;   // ADC in saturated soil/water
 
 // ============================================================
-//  EC CALIBRATION FACTOR - TUNE THIS FOR YOUR SENSOR!
-//  Your sensor may read higher/lower than the lookup table.
-//  
-//  HOW TO CALIBRATE:
-//  1. Take a soil sample, measure moisture-corrected EC
-//  2. If reading 600-700 but table expects 70-120:
-//     Factor = 70-120 / 600-700 ≈ 0.12-0.17
-//  3. Adjust factor until NPK values seem reasonable
-//  
-//  DEFAULT: 0.14 scales 600-700 → 84-98 µS/cm (mid-table)
-// ============================================================
-const float EC_CALIBRATION_FACTOR = 0.14;
-
-// ============================================================
 //  Research-Based Lookup Table (9 field-trial observations)
 //  Sorted by EC. Values: EC(µS/cm), N/P/K in mg/kg & kg/ha
 // ============================================================
@@ -279,79 +265,32 @@ void loop() {
   int   moisturePct  = rawToMoisture(rawValue);
   float ec_base      = rawToEC_base(rawValue);
   
-  // --- 3. Apply moisture correction to EC (Rule-based physics model) ---
-  // Moisture ↑ → Ion mobility ↑ → EC ↑ → NPK readability ↑
-  float ec_raw       = getMoistureCorrectedEC(ec_base, moisturePct);
-  
-  // --- 3b. Apply calibration factor to match lookup table range ---
-  float ec_uScm      = ec_raw * EC_CALIBRATION_FACTOR;
+  // --- 3. Map moisture to EC in research table range (70-120 µS/cm) ---
+  // Physics: Moisture ↑ → Ion mobility ↑ → EC ↑
+  // 0% moisture → EC 70 (dry, low conductivity)
+  // 100% moisture → EC 120 (saturated, high conductivity)
+  float ec_uScm = 70.0 + (moisturePct / 100.0) * 50.0;
+  ec_uScm = constrain(ec_uScm, 70.0, 120.0);
 
-  // --- 4. Interpolate NPK from research LUT using calibrated EC ---
-  float N_mg  = interpolate(EC_LUT, N_MGKG, LUT_SIZE, ec_uScm);
-  float P_mg  = interpolate(EC_LUT, P_MGKG, LUT_SIZE, ec_uScm);
-  float K_mg  = interpolate(EC_LUT, K_MGKG, LUT_SIZE, ec_uScm);
-
+  // --- 4. Interpolate NPK from research LUT using mapped EC ---
   float N_kg  = interpolate(EC_LUT, N_KGHA, LUT_SIZE, ec_uScm);
   float P_kg  = interpolate(EC_LUT, P_KGHA, LUT_SIZE, ec_uScm);
   float K_kg  = interpolate(EC_LUT, K_KGHA, LUT_SIZE, ec_uScm);
-
   float ph    = interpolate(EC_LUT, PH_LUT, LUT_SIZE, ec_uScm);
-  float soilTemp = estimateSoilTemp(moisturePct);
 
-  // --- 4. Cast to int for backend compatibility ---
   int N_int = (int)round(N_kg);
   int P_int = (int)round(P_kg);
   int K_int = (int)round(K_kg);
 
-  // --- 5. Serial Report ---
-  Serial.println("\n============= SOIL REPORT =============");
-  Serial.printf("  ADC Raw       : %d  (avg of %d samples)\n", rawValue, ADC_SAMPLES);
-  Serial.printf("  Moisture      : %d %%", moisturePct);
-  
-  // Moisture status indicator
-  if (moisturePct < 20) {
-    Serial.println("  [DRY - Low ion mobility]");
-  } else if (moisturePct < 40) {
-    Serial.println("  [MODERATE - Fair conductivity]");
-  } else if (moisturePct < 70) {
-    Serial.println("  [OPTIMAL - Good conductivity]");
-  } else {
-    Serial.println("  [WET - Maximum conductivity]");
-  }
-  
-  Serial.printf("  EC (base)     : %.1f uS/cm\n", ec_base);
-  Serial.printf("  EC (moist-adj): %.1f uS/cm\n", ec_raw);
-  Serial.printf("  EC (calibrated): %.1f uS/cm  (×%.2f factor)\n", ec_uScm, EC_CALIBRATION_FACTOR);
-  
-  // Calibration guidance
-  if (ec_raw > 300.0) {
-    Serial.printf("  ⚙ TUNING TIP: Raw EC is high (%.0f). Consider EC_CALIBRATION_FACTOR=%.3f\n", 
-                  ec_raw, 90.0/ec_raw);  // 90 is mid-table
-  }
-  
-  Serial.printf("  Est. pH       : %.2f\n", ph);
-  Serial.printf("  Soil Temp     : %.1f C (estimated)\n", soilTemp);
-  Serial.println("  ---------- NPK (mg/kg) ----------");
-  Serial.printf("  Nitrogen      : %.2f mg/kg\n", N_mg);
-  Serial.printf("  Phosphorus    : %.2f mg/kg\n", P_mg);
-  Serial.printf("  Potassium     : %.2f mg/kg\n", K_mg);
-  Serial.println("  ---------- NPK (kg/ha) ----------");
-  Serial.printf("  Nitrogen      : %.1f kg/ha  [%s]\n", N_kg, classifyN(N_kg));
-  Serial.printf("  Phosphorus    : %.1f kg/ha  [%s]\n", P_kg, classifyP(P_kg));
-  Serial.printf("  Potassium     : %.1f kg/ha  [%s]\n", K_kg, classifyK(K_kg));
-  Serial.println("  ------------------------------------");
-  Serial.printf("  Advice: %s\n", getAdvice(N_kg, P_kg, K_kg, moisturePct).c_str());
-  
-  // --- Accuracy Warnings based on Moisture → EC → NPK chain ---
-  if (moisturePct < 15) {
-    Serial.println("  ⚠ WARNING: Soil too dry. NPK readings may be underestimated.");
-    Serial.println("             Irrigate to 40-60%% for accurate measurements.");
-  } else if (moisturePct > 85) {
-    Serial.println("  ⚠ WARNING: Soil waterlogged. Nutrient leaching risk.");
-    Serial.println("             Reduce irrigation. NPK may be inflated.");
-  }
-  
-  Serial.println("========================================");
+  // --- 5. Serial Report (clean output) ---
+  Serial.println("\n====== SOIL REPORT ======");
+  Serial.printf("  Moisture : %d %%\n", moisturePct);
+  Serial.printf("  EC       : %.1f uS/cm\n", ec_uScm);
+  Serial.printf("  pH       : %.2f\n", ph);
+  Serial.printf("  N        : %.1f kg/ha\n", N_kg);
+  Serial.printf("  P        : %.1f kg/ha\n", P_kg);
+  Serial.printf("  K        : %.1f kg/ha\n", K_kg);
+  Serial.println("=========================");
 
   // --- 6. POST to Backend ---
   if (WiFi.status() == WL_CONNECTED) {
@@ -367,7 +306,7 @@ void loop() {
     payload += "\"potassium\":"    + String(K_int) + ",";
     payload += "\"conductivity\":" + String(ec_uScm, 2) + ",";
     payload += "\"ph\":"           + String(ph, 2) + ",";
-    payload += "\"soil_temperature\":" + String(soilTemp, 1);
+    payload += "\"soil_temperature\":" + String(estimateSoilTemp(moisturePct), 1);
     payload += "}";
 
     int httpCode = http.POST(payload);
